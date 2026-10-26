@@ -125,8 +125,58 @@ const DAYS = [
   },
 ];
 
+// ─── Hero slider ────────────────────────────────────────────────────────────
+// Lifestyle shots of the keychain on real people, not on a white table. The
+// caption under each one is the label the card shows while that photo is up.
+const SLIDES = [
+  {
+    src: '/img/hero-1.webp',
+    alt: 'A man carrying a brown shoulder bag with the tan teardrop keychain clipped to the strap',
+    label: 'The teardrop chain',
+    caption: 'Clean, carry, keep close.',
+    focus: '52% 42%',
+  },
+  {
+    src: '/img/hero-2.webp',
+    alt: 'A woman on an escalator with a black shoulder bag and the red heart keychain',
+    label: 'The heart chain',
+    caption: 'Clipped to the bag she carries every day.',
+    focus: '55% 38%',
+  },
+  {
+    src: '/img/hero-3.webp',
+    alt: 'A woman in a pink shirt carrying a white shoulder bag with the red heart keychain',
+    label: 'The heart chain',
+    caption: 'A little colour on the way out.',
+    focus: '52% 36%',
+  },
+  {
+    src: '/img/hero-4.webp',
+    alt: 'A woman in a brown top with the black heart keychain clipped at her waist',
+    label: 'The black heart',
+    caption: 'Not just for keys.',
+    focus: '55% 42%',
+  },
+];
+
 export default function Home() {
   const [open, setOpen] = useState(0);
+
+  // ── Hero slider ─────────────────────────────────────────────────────────
+  // Four lifestyle photos cross-fading behind the caption card. It advances on
+  // its own, stops while the pointer or keyboard focus is on it, and stays put
+  // entirely for anyone who has asked their system to reduce motion.
+  const [hero, setHero] = useState(0);
+  const [hold, setHold] = useState(false);
+
+  useEffect(() => {
+    if (hold) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setInterval(() => setHero((i) => (i + 1) % SLIDES.length), 5600);
+    return () => window.clearInterval(timer);
+  }, [hold]);
+
+  const nextHero = () => setHero((i) => (i + 1) % SLIDES.length);
 
   // ── The everyday edit rail ──────────────────────────────────────────────
   // Three photos side by side on a desktop; one at a time on a phone. The
@@ -215,24 +265,65 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="relative overflow-hidden">
-          <div className="flex h-full min-h-[380px] items-center justify-center gap-11 bg-blush-200 max-md:min-h-[300px] max-md:gap-7">
-            <Chain shape="heart" colour={heart.hex} className="w-[156px] max-md:w-[116px]" />
-            <Chain shape="teardrop" colour={drop.hex} className="mt-10 w-[120px] max-md:mt-7 max-md:w-[92px]" />
-          </div>
+        <div
+          className="relative min-h-[380px] overflow-hidden bg-blush-200 max-md:min-h-[320px]"
+          onMouseEnter={() => setHold(true)}
+          onMouseLeave={() => setHold(false)}
+          onFocus={() => setHold(true)}
+          onBlur={() => setHold(false)}
+        >
+          {SLIDES.map((s, i) => (
+            <img
+              key={s.src}
+              src={s.src}
+              alt={i === hero ? s.alt : ''}
+              aria-hidden={i !== hero}
+              draggable={false}
+              style={{ objectPosition: s.focus }}
+              className={[
+                'absolute inset-0 h-full w-full object-cover transition-opacity duration-[1100ms] ease-out',
+                i === hero ? 'opacity-100' : 'opacity-0',
+              ].join(' ')}
+            />
+          ))}
 
-          <div className="absolute inset-x-7 bottom-7 flex items-center justify-between gap-5 rounded bg-white/95 px-[18px] py-4 pl-[22px] backdrop-blur max-md:inset-x-3.5 max-md:bottom-3.5">
-            <div>
-              <p className="text-[8.5px] uppercase tracking-[0.2em] text-crimson-600">The heart chain</p>
-              <p className="mt-1 font-serif text-[15px] text-ink-900">Clean, carry, keep close.</p>
+          <div className="absolute inset-x-7 bottom-7 flex items-center justify-between gap-4 rounded bg-white/95 py-4 pl-[22px] pr-4 backdrop-blur max-md:inset-x-3.5 max-md:bottom-3.5">
+            <div className="min-w-0">
+              <p className="text-[8.5px] uppercase tracking-[0.2em] text-crimson-600">
+                {SLIDES[hero].label}
+              </p>
+              <p className="mt-1 font-serif text-[15px] leading-[1.3] text-ink-900">
+                {SLIDES[hero].caption}
+              </p>
             </div>
-            <Link
-              to="/pos"
-              aria-label="View the heart chain"
-              className="grid h-[34px] w-[34px] flex-none place-items-center rounded-full border border-blush-300 bg-white text-wine-800 transition-colors hover:bg-wine-800 hover:text-white"
-            >
-              <ArrowRight />
-            </Link>
+
+            <div className="flex flex-none items-center gap-3">
+              <div className="flex items-center">
+                {SLIDES.map((s, i) => (
+                  <button
+                    key={s.src}
+                    onClick={() => setHero(i)}
+                    aria-label={`Photo ${i + 1} of ${SLIDES.length}`}
+                    aria-current={i === hero}
+                    className="grid place-items-center p-[7px]"
+                  >
+                    <span
+                      className={[
+                        'block h-[3px] rounded-full transition-all',
+                        i === hero ? 'w-4 bg-crimson-600' : 'w-[3px] bg-blush-400',
+                      ].join(' ')}
+                    />
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={nextHero}
+                aria-label="Next photo"
+                className="grid h-[34px] w-[34px] flex-none place-items-center rounded-full border border-blush-300 bg-white text-wine-800 transition-colors hover:bg-wine-800 hover:text-white"
+              >
+                <ArrowRight />
+              </button>
+            </div>
           </div>
         </div>
       </section>
