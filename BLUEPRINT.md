@@ -134,6 +134,12 @@ the record in place, and every number is visible to more than one person.
 - Set the month — department quotas, live whole-piece split, sum check
 - Accounts — the roster with each person's quota
 
+The POS and My sales read the **signed-in member**, not a fixed name: the quota
+bar, the credit recipient, and the "credited to" warning all follow whoever is
+logged in. My sales shows only that person's own rows — Finance and the GM get
+every row plus a Staff column, because the blueprint lets them see the whole
+team.
+
 ## Draft
 
 Every figure comes from `src/lib/*.ts`, not from a database. Nothing is saved:

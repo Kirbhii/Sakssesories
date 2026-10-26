@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import SiteHeader from '@/components/SiteHeader';
+import { useAuth } from '@/lib/auth';
 import { peso } from '@/lib/data';
 import {
-  ME,
   PLAN,
   activeMembers,
   barWidth,
@@ -19,7 +19,7 @@ import {
   teamLeft,
 } from '@/lib/quota';
 
-import { SALES, dateOf, inRange, type Range } from '@/lib/sales';
+import { SALES, dateOf, inRange, salesOf, type Range } from '@/lib/sales';
 
 const RANGES: { id: Range; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -52,23 +52,38 @@ const KPI = [
 ] as const;
 
 export default function Portal() {
+  const { member, role } = useAuth();
+
   const [range, setRange] = useState<Range>('today');
   const [query, setQuery] = useState('');
 
-  const meQuota = quotaOf(ME.id);
-  const meRoom = roomOf(ME.id);
-  const nextTo = creditRecipient(ME.id);
+  // Finance and the GM are allowed to see the whole team's orders; Marketing
+  // and Production only see their own. The blueprint draws that line, so the
+  // filter lives here rather than in the table component.
+  const seesAll = role === 'finance' || role === 'gm';
 
-  const rows = useMemo(
-    () =>
-      SALES.filter(
-        (s) =>
-          inRange(s.ago, range) &&
-          (query === '' ||
-            `${s.customer} ${s.variant} ${s.no}`.toLowerCase().includes(query.toLowerCase())),
-      ),
-    [range, query],
+  const rows = useMemo(() => {
+    if (!member) return [];
+    const scope = seesAll ? SALES : salesOf(member.id);
+    return scope.filter(
+      (s) =>
+        inRange(s.ago, range) &&
+        (query === '' ||
+          `${s.customer} ${s.variant} ${s.no}`.toLowerCase().includes(query.toLowerCase())),
+    );
+  }, [member, seesAll, range, query]);
+
+  const total = useMemo(
+    () => (member ? (seesAll ? SALES : salesOf(member.id)).length : 0),
+    [member, seesAll],
   );
+
+  // RequireAuth in App.tsx already blocks a signed-out visitor.
+  if (!member) return null;
+
+  const meQuota = quotaOf(member.id);
+  const meRoom = roomOf(member.id);
+  const nextTo = creditRecipient(member.id);
 
   const orders = rows.length;
   const items = rows.reduce((sum, s) => sum + s.qty, 0);
@@ -93,6 +108,12 @@ export default function Portal() {
 
   const maxQty = best[0]?.[1].qty ?? 1;
 
+  // The Staff column only exists for the people allowed to see everyone's work.
+  const COLS = seesAll
+    ? ['Order', 'Date', 'Staff', 'Customer', 'Variant', 'Engraving', 'Qty', 'Amount']
+    : ['Order', 'Date', 'Customer', 'Variant', 'Engraving', 'Qty', 'Amount'];
+  const LAST = COLS.length - 1;
+
   return (
     <div className="min-h-screen bg-blush-50">
       <SiteHeader strip="Staff" />
@@ -100,9 +121,13 @@ export default function Portal() {
       <main className="mx-auto max-w-[1560px] px-7 pb-9 pt-[26px] max-md:px-4">
         <div className="flex items-start justify-between gap-6 max-md:flex-col max-md:gap-3.5">
           <div>
-            <h1 className="text-[clamp(26px,2.3vw,31px)]">Your sales.</h1>
+            <h1 className="text-[clamp(26px,2.3vw,31px)]">
+              {seesAll ? 'All sales.' : 'Your sales.'}
+            </h1>
             <p className="mt-1.5 max-w-[62ch] text-[11.5px] text-ink-500">
-              Every piece you sold — with the customer, the variant, and the engraving attached.
+              {seesAll
+                ? `Every order the team recorded, with the staff member who rang it up. Signed in as ${member.name}.`
+                : `Every piece ${member.name.split(' ')[0]} sold — with the customer, the variant, and the engraving attached.`}
             </p>
           </div>
           <div className="flex gap-2">
@@ -125,10 +150,10 @@ export default function Portal() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[8px] uppercase tracking-[0.17em] text-ink-300">
-                    Your quota · {PLAN.label}
+                    {seesAll ? 'Your quota' : `${member.name.split(' ')[0]}'s quota`} · {PLAN.label}
                   </p>
                   <p className="num mt-[7px] text-[26px] font-medium leading-none text-ink-900">
-                    {ME.credited}
+                    {member.credited}
                     <span className="text-[13px] font-normal text-ink-300"> / {meQuota} pcs</span>
                   </p>
                 </div>
@@ -138,7 +163,7 @@ export default function Portal() {
                     meRoom === 0 ? 'bg-ok-100 text-ok-600' : 'bg-blush-100 text-ink-500',
                   ].join(' ')}
                 >
-                  {meRoom === 0 ? 'Full' : `${pct(ME.credited, meQuota)}%`}
+                  {meRoom === 0 ? 'Full' : `${pct(member.credited, meQuota)}%`}
                 </span>
               </div>
 
@@ -148,14 +173,14 @@ export default function Portal() {
                     'block h-full rounded-full',
                     meRoom === 0 ? 'bg-ok-600' : 'bg-crimson-600',
                   ].join(' ')}
-                  style={{ width: `${barWidth(ME.credited, meQuota)}%` }}
+                  style={{ width: `${barWidth(member.credited, meQuota)}%` }}
                 />
               </div>
 
               <p className="mt-2 text-[10px] leading-[1.55] text-ink-500">
-                You rang up {ME.rungUp} pieces
-                {passedOn(ME.id) > 0
-                  ? ` — ${passedOn(ME.id)} were credited to teammates who still had room.`
+                {member.name.split(' ')[0]} rang up {member.rungUp} pieces
+                {passedOn(member.id) > 0
+                  ? ` — ${passedOn(member.id)} were credited to teammates who still had room.`
                   : '.'}
               </p>
 
@@ -282,7 +307,7 @@ export default function Portal() {
               <p className="mt-1.5 text-[9px] text-ink-300">
                 {k.key === 'orders' && `Recorded ${RANGES.find((r) => r.id === range)?.label.toLowerCase()}`}
                 {k.key === 'items' && 'Pieces out the door'}
-                {k.key === 'sales' && 'Recorded under your name'}
+                {k.key === 'sales' && (seesAll ? 'Recorded across the team' : 'Recorded under your name')}
                 {k.key === 'avg' && 'Per completed sale'}
               </p>
               <svg
@@ -319,12 +344,12 @@ export default function Portal() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-blush-50">
-                  {['Order', 'Date', 'Customer', 'Variant', 'Engraving', 'Qty', 'Amount'].map((h, i) => (
+                  {COLS.map((h, i) => (
                     <th
                       key={h}
                       className={[
                         'border-b border-blush-300/60 px-4 py-[9px] text-left text-[7.5px] font-medium uppercase tracking-[0.16em] text-ink-300',
-                        i === 6 ? 'text-right' : '',
+                        i === LAST ? 'text-right' : '',
                       ].join(' ')}
                     >
                       {h}
@@ -335,8 +360,10 @@ export default function Portal() {
               <tbody>
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-[26px] text-[11px] text-ink-300">
-                      No sales in this range yet.
+                    <td colSpan={COLS.length} className="px-4 py-[26px] text-[11px] text-ink-300">
+                      {seesAll
+                        ? 'No sales in this range yet.'
+                        : 'You have not rung up a sale in this range yet.'}
                     </td>
                   </tr>
                 )}
@@ -344,6 +371,11 @@ export default function Portal() {
                   <tr key={s.no} className="border-b border-blush-300/60 last:border-0">
                     <td className="num px-4 py-[9px] text-[10.5px] tracking-[0.04em]">{s.no}</td>
                     <td className="px-4 py-[9px] text-[10.5px] text-ink-500">{dateOf(s.ago)}</td>
+                    {seesAll && (
+                      <td className="px-4 py-[9px] text-[10.5px] text-ink-500">
+                        {memberOf(s.staffId)?.name ?? s.staffId}
+                      </td>
+                    )}
                     <td className="px-4 py-[9px] text-[10.5px]">{s.customer}</td>
                     <td className="px-4 py-[9px] text-[10.5px] text-ink-500">{s.variant}</td>
                     <td className="px-4 py-[9px] text-[10.5px] tracking-[0.08em] text-ink-500">{s.engraving}</td>
@@ -356,7 +388,7 @@ export default function Portal() {
           </div>
 
           <div className="border-t border-blush-300/60 bg-blush-50 px-4 py-2.5 text-[9px] text-ink-300">
-            Showing {orders} of {SALES.length} orders · {peso(sales)} total
+            Showing {orders} of {total} {seesAll ? 'team' : 'own'} orders · {peso(sales)} total
           </div>
         </section>
 

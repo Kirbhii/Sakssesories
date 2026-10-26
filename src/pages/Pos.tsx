@@ -1,16 +1,9 @@
 import { useMemo, useState } from 'react';
 import SiteHeader from '@/components/SiteHeader';
 import Chain from '@/components/Chain';
+import { useAuth } from '@/lib/auth';
 import { VARIANTS, engravingFee, cleanEngraving, peso, type Variant } from '@/lib/data';
-import {
-  ME,
-  PLAN,
-  barWidth,
-  creditRecipient,
-  memberOf,
-  quotaOf,
-  roomOf,
-} from '@/lib/quota';
+import { PLAN, barWidth, creditRecipient, memberOf, quotaOf, roomOf } from '@/lib/quota';
 
 type PaymentMethod = 'cash' | 'gcash' | 'card';
 
@@ -26,6 +19,8 @@ const PAYMENTS: { id: PaymentMethod; label: string }[] = [
 ];
 
 export default function Pos() {
+  const { member } = useAuth();
+
   const [cart, setCart] = useState<CartLine[]>(() => [
     { ...VARIANTS.find((v) => v.key === 'heart-maroon')!, qty: 1, engraving: '' },
     { ...VARIANTS.find((v) => v.key === 'teardrop-tan')!, qty: 1, engraving: '' },
@@ -35,16 +30,6 @@ export default function Pos() {
   const [payment, setPayment] = useState<PaymentMethod>('cash');
   const [cash, setCash] = useState('500');
   const [done, setDone] = useState(false);
-
-  // ── The two gates ───────────────────────────────────────────────────────
-  // Stock is checked per variant (cards at 0 are disabled and quantities are
-  // capped at what is left). Quota is checked here: a sale can only be
-  // recorded if somebody on the team still has room to carry it.
-  const meQuota = quotaOf(ME.id);
-  const meRoom = roomOf(ME.id);
-  const recipient = creditRecipient(ME.id);
-  const blocked = recipient === null;
-  const creditName = recipient ? memberOf(recipient)?.name : null;
 
   const visible = useMemo(
     () =>
@@ -56,6 +41,22 @@ export default function Pos() {
       ),
     [shape, query],
   );
+
+  // RequireAuth in App.tsx already blocks a signed-out visitor, so this is
+  // unreachable — but the quota below belongs to a real person or to nobody.
+  if (!member) return null;
+
+  // ── The two gates ───────────────────────────────────────────────────────
+  // Stock is checked per variant (cards at 0 are disabled and quantities are
+  // capped at what is left). Quota is checked here: a sale can only be
+  // recorded if somebody on the team still has room to carry it.
+  //
+  // Everything below follows the person who is signed in — not a fixed name.
+  const meQuota = quotaOf(member.id);
+  const meRoom = roomOf(member.id);
+  const recipient = creditRecipient(member.id);
+  const blocked = recipient === null;
+  const creditName = recipient ? memberOf(recipient)?.name : null;
 
   const subtotal = cart.reduce((sum, l) => sum + l.price * l.qty, 0);
   const engravingTotal = cart.reduce(
@@ -370,10 +371,10 @@ export default function Pos() {
             >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[8px] uppercase tracking-[0.15em] text-ink-300">
-                  Your quota · {PLAN.label}
+                  {PLAN.label} quota · {member.name}
                 </span>
                 <span className="num text-[10px] text-ink-500">
-                  {ME.credited} / {meQuota}
+                  {member.credited} / {meQuota}
                 </span>
               </div>
               <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-blush-200">
@@ -382,7 +383,7 @@ export default function Pos() {
                     'block h-full rounded-full',
                     meRoom === 0 ? 'bg-ok-600' : 'bg-crimson-600',
                   ].join(' ')}
-                  style={{ width: `${barWidth(ME.credited, meQuota)}%` }}
+                  style={{ width: `${barWidth(member.credited, meQuota)}%` }}
                 />
               </div>
               <p
