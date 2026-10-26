@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
@@ -102,13 +102,66 @@ const STEPS = [
 ];
 
 const DAYS = [
-  { colour: '#1f2f52', shape: 'heart' as const, title: 'Coffee, keys, ClearChain.', body: 'Morning table, no searching for a cloth.' },
-  { colour: '#6b1f2a', shape: 'heart' as const, title: 'A little cleaner in your bag.', body: 'Clipped where you can reach it.' },
-  { colour: '#b9855a', shape: 'teardrop' as const, title: 'Desk-side companion.', body: 'One swipe between tasks.' },
+  {
+    img: '/img/everyday-bag.jpg',
+    alt: 'The heart keychain clipped to a black leather bag beside a set of keys',
+    title: 'A little love on your bag.',
+    body: 'Clipped where you can reach it',
+    focus: '50% 50%',
+  },
+  {
+    img: '/img/everyday-leather.jpg',
+    alt: 'Close-up of the red leather heart keychain resting on blush satin',
+    title: 'Real leather, cut by hand.',
+    body: 'It softens and darkens with use',
+    focus: '50% 46%',
+  },
+  {
+    img: '/img/everyday-carry.jpg',
+    alt: 'Flat lay of a phone, earphones, keys, a pen, a wallet and the heart keychain',
+    title: 'Phone, keys, wallet — and this.',
+    body: 'One small thing that does more',
+    focus: '50% 38%',
+  },
 ];
 
 export default function Home() {
   const [open, setOpen] = useState(0);
+
+  // ── The everyday edit rail ──────────────────────────────────────────────
+  // Three photos side by side on a desktop; one at a time on a phone. The
+  // arrows scroll the rail, and they switch off when everything already fits
+  // — a disabled control is honest, a button that does nothing is not.
+  const railRef = useRef<HTMLDivElement>(null);
+  const [shot, setShot] = useState(0);
+  const [canScroll, setCanScroll] = useState(false);
+
+  useEffect(() => {
+    const el = railRef.current;
+    if (!el) return;
+    const measure = () => setCanScroll(el.scrollWidth > el.clientWidth + 4);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const stepOf = (el: HTMLDivElement) => {
+    const card = el.firstElementChild as HTMLElement | null;
+    return card ? card.offsetWidth + 22 : el.clientWidth;
+  };
+
+  function page(dir: number) {
+    const el = railRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * stepOf(el), behavior: 'smooth' });
+  }
+
+  function trackScroll() {
+    const el = railRef.current;
+    if (!el) return;
+    setShot(Math.min(DAYS.length - 1, Math.max(0, Math.round(el.scrollLeft / stepOf(el)))));
+  }
 
   const heart = VARIANTS.find((v) => v.key === 'heart-maroon')!;
   const drop = VARIANTS.find((v) => v.key === 'teardrop-tan')!;
@@ -354,41 +407,74 @@ export default function Home() {
       </section>
 
       {/* ── Goes where your day goes ─────────────────────────────────────── */}
-      <section className="py-[82px] max-md:py-14">
+      <section className="bg-blush-50 py-[82px] max-md:py-14">
         <div className="mx-auto w-full max-w-[1240px] px-8">
-          <div className="mb-[34px] flex items-end justify-between gap-8">
-            <div>
+          <div className="mb-[30px] flex flex-wrap items-end justify-between gap-8 max-md:gap-4">
+            <div className="max-md:w-full">
               <p className="eyebrow">
                 <span className="h-[5px] w-[5px] rounded-full bg-current" />
-                In your everyday
+                The everyday edit
               </p>
               <h2 className="text-[clamp(28px,2.7vw,37px)] leading-[1.14]">
                 Goes where your day goes.
               </h2>
             </div>
-            <div className="flex gap-2">
-              {['←', '→'].map((a) => (
+            <div className="flex flex-none gap-2 max-md:ml-auto">
+              {[-1, 1].map((dir) => (
                 <button
-                  key={a}
-                  aria-label={a === '←' ? 'Previous' : 'Next'}
-                  className="grid h-[30px] w-[30px] place-items-center rounded-full border border-blush-300 text-[12px] text-ink-700 transition-colors hover:border-wine-800 hover:bg-wine-800 hover:text-white"
+                  key={dir}
+                  onClick={() => page(dir)}
+                  disabled={!canScroll || (dir < 0 ? shot === 0 : shot === DAYS.length - 1)}
+                  aria-label={dir < 0 ? 'Previous photo' : 'Next photo'}
+                  className="grid h-[34px] w-[34px] place-items-center rounded-[3px] border border-blush-300 bg-white text-ink-700 transition-colors hover:border-wine-800 hover:bg-wine-800 hover:text-white disabled:pointer-events-none disabled:opacity-55"
                 >
-                  {a}
+                  <ArrowRight className={dir < 0 ? 'h-3 w-3 rotate-180' : 'h-3 w-3'} />
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-[22px] max-md:grid-cols-1">
+          <div
+            ref={railRef}
+            onScroll={trackScroll}
+            className="no-scrollbar flex snap-x snap-mandatory gap-[22px] overflow-x-auto"
+          >
             {DAYS.map((d) => (
-              <article key={d.title}>
-                <div className="grid aspect-[4/3] place-items-center rounded bg-blush-200">
-                  <Chain shape={d.shape} colour={d.colour} className="w-[76px]" />
+              <article
+                key={d.title}
+                className="w-full flex-none snap-start md:w-[calc((100%-22px)/2)] lg:w-[calc((100%-44px)/3)]"
+              >
+                <div className="aspect-square overflow-hidden bg-blush-200">
+                  <img
+                    src={d.img}
+                    alt={d.alt}
+                    loading="lazy"
+                    style={{ objectPosition: d.focus }}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
-                <h3 className="mt-3.5 font-serif text-[14px]">{d.title}</h3>
-                <p className="mt-1 text-[11.5px] text-ink-500">{d.body}</p>
+                <h3 className="mt-3.5 font-serif text-[14px] leading-[1.3] text-ink-900">{d.title}</h3>
+                <p className="mt-1.5 text-[8.5px] uppercase tracking-[0.16em] text-ink-300">{d.body}</p>
               </article>
             ))}
+          </div>
+
+          <div className="mt-5 flex items-center justify-between gap-4 border-t border-blush-300 pt-3.5">
+            <div className="flex items-center gap-1.5">
+              {DAYS.map((d, i) => (
+                <span
+                  key={d.title}
+                  className={[
+                    'h-[2px] rounded-full transition-all',
+                    i === shot ? 'w-6 bg-crimson-600' : 'w-3 bg-blush-300',
+                  ].join(' ')}
+                />
+              ))}
+            </div>
+            <p className="num text-[8.5px] uppercase tracking-[0.18em] text-ink-300">
+              {String(shot + 1).padStart(2, '0')} / {String(DAYS.length).padStart(2, '0')} — The
+              everyday edit
+            </p>
           </div>
         </div>
       </section>

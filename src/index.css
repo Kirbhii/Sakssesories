@@ -111,3 +111,13 @@
     animation: none;
   }
 }
+
+/* Horizontal rails scroll, but the bar itself would break the editorial look. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
