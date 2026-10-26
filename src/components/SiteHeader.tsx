@@ -26,13 +26,14 @@ const NAV: NavItem[] = [
   { to: '/', label: 'Shop', end: true },
   // The POS is open to everyone — a signed-out visitor is a customer building
   // their own order, a signed-in member is staff. So it shows on the navbar
-  // for both, while the rest of the staff doors stay role-gated.
+  // for both, while the rest of the staff doors stay role-gated and now live
+  // inside the portal.
   { to: '/pos', label: 'Point of sale' },
   { to: '/portal', label: 'My sales', roles: STAFF },
-  { to: '/inventory', label: 'Inventory', roles: STAFF },
-  { to: '/finance', label: 'Finance', roles: ['finance', 'gm'] },
-  { to: '/quota', label: 'Quota', roles: ['gm'] },
-  { to: '/users', label: 'Users', roles: ['gm'] },
+  { to: '/portal/inventory', label: 'Inventory', roles: STAFF },
+  { to: '/portal/finance', label: 'Finance', roles: ['finance', 'gm'] },
+  { to: '/portal/quota', label: 'Quota', roles: ['gm'] },
+  { to: '/portal/users', label: 'Users', roles: ['gm'] },
 ];
 
 export default function SiteHeader() {

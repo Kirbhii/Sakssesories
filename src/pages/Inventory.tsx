@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { peso, peso2, SHAPES } from '@/lib/data';
-import SideRail from '@/components/SideRail';
 import {
   MATERIALS,
   COST_BREAKDOWN,
@@ -80,12 +79,8 @@ export default function Inventory() {
   const lowCount = MATERIALS.filter((m) => materialStatus(m) !== 'ok').length;
 
   return (
-    <div className="flex min-h-screen bg-blush-50 max-md:flex-col">
-      <SideRail />
-
-      {/* ── Content ──────────────────────────────────────────────────────── */}
-      <div className="min-w-0 flex-1">
-        <header className="flex h-[52px] items-center justify-between gap-5 border-b border-blush-300 bg-white px-7 max-md:px-4">
+    <>
+      <header className="flex h-[52px] items-center justify-between gap-5 border-b border-blush-300 bg-white px-7 max-md:px-4">
           <span className="text-[8.5px] uppercase tracking-[0.19em] text-ink-300">
             <b className="font-medium text-ink-900">Inventory</b> / Materials
           </span>
@@ -310,7 +305,6 @@ export default function Inventory() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   );
 }

@@ -4,6 +4,7 @@ import Home from '@/pages/Home';
 import Login from '@/pages/Login';
 import Pos from '@/pages/Pos';
 import Portal from '@/pages/Portal';
+import MySales from '@/pages/MySales';
 import Inventory from '@/pages/Inventory';
 import Finance from '@/pages/Finance';
 import QuotaSettings from '@/pages/QuotaSettings';
@@ -52,6 +53,7 @@ export default function App() {
     <BrowserRouter>
       <ScrollToTop />
       <Routes>
+        {/* ── Public face: Shop + POS keep the horizontal navbar ─────────── */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
 
@@ -59,6 +61,10 @@ export default function App() {
             ordering for themselves (cash locked, no quota). A signed-in member
             is staff ringing up a sale (cash enabled, quota shown). */}
         <Route path="/pos" element={<Pos />} />
+
+        {/* ── Staff face: one Portal, the rail on the left, the tab on the
+            right. Every staff door lives inside /portal, so a member only sees
+            the tabs their role allows. ─────────────────────────────────── */}
         <Route
           path="/portal"
           element={
@@ -66,43 +72,37 @@ export default function App() {
               <Portal />
             </RequireAuth>
           }
-        />
-        <Route
-          path="/inventory"
-          element={
-            <RequireAuth>
-              <Inventory />
-            </RequireAuth>
-          }
-        />
-
-        <Route
-          path="/finance"
-          element={
-            <RequireRole
-              allow={['finance', 'gm']}
-              need="Revenue, cost and cash belong to Finance and the GM."
-            >
-              <Finance />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/quota"
-          element={
-            <RequireRole allow={['gm']} need="Only the GM sets the monthly quota.">
-              <QuotaSettings />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/users"
-          element={
-            <RequireRole allow={['gm']} need="Only the GM manages accounts and roles.">
-              <Users />
-            </RequireRole>
-          }
-        />
+        >
+          <Route index element={<MySales />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route
+            path="finance"
+            element={
+              <RequireRole
+                allow={['finance', 'gm']}
+                need="Revenue, cost and cash belong to Finance and the GM."
+              >
+                <Finance />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="quota"
+            element={
+              <RequireRole allow={['gm']} need="Only the GM sets the monthly quota.">
+                <QuotaSettings />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="users"
+            element={
+              <RequireRole allow={['gm']} need="Only the GM manages accounts and roles.">
+                <Users />
+              </RequireRole>
+            }
+          />
+        </Route>
 
         <Route path="*" element={<Home />} />
       </Routes>

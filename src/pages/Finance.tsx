@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import SideRail from '@/components/SideRail';
 import { peso, peso2 } from '@/lib/data';
 import { COST_TOTAL } from '@/lib/materials';
 import { PAY_LABEL, SALES, inRange, type PayMethod } from '@/lib/sales';
@@ -38,11 +37,7 @@ export default function Finance() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-blush-50 max-md:flex-col">
-      <SideRail />
-
-      <div className="min-w-0 flex-1">
-      <main className="mx-auto max-w-[1560px] px-7 pb-9 pt-[26px] max-md:px-4">
+    <main className="mx-auto max-w-[1560px] px-7 pb-9 pt-[26px] max-md:px-4">
         <div className="flex items-start justify-between gap-6 max-md:flex-col max-md:gap-3.5">
           <div>
             <h1 className="text-[clamp(26px,2.3vw,31px)]">The money, not the quota.</h1>
@@ -148,8 +143,6 @@ export default function Finance() {
         <p className="mt-4 text-[9px] leading-[1.6] text-ink-300">
           Draft — these figures come from the sample ledger, not from a database yet.
         </p>
-      </main>
-      </div>
-    </div>
+    </main>
   );
 }

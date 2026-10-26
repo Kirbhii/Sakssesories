@@ -3,39 +3,45 @@ import { ROLE_LABEL, useAuth } from '@/lib/auth';
 import type { MemberRole } from '@/lib/quota';
 
 // ─── Vertical wine rail ─────────────────────────────────────────────────────
-// Every staff screen (Portal, Inventory, Finance, Quota, Users) shares this one
-// rail, so the inside of the app looks uniform no matter which door you walked
-// through. Home and the POS keep the horizontal navbar instead — that is the
-// customer-facing face of the brand.
+// The staff side of the app is one Portal: this rail on the left, and the
+// selected tab on the right. Every staff tab lives inside /portal, so a member
+// only ever sees the doors their role allows. The public face of the brand —
+// Shop (Home) and the POS — stays outside the portal with the horizontal
+// navbar.
 //
 // Below `md` the rail turns into a horizontal strip that scrolls sideways, so it
-// carries the same role-filtered links as the navbar. A phone would otherwise
-// be stranded on one screen with no way to reach the others.
+// carries the same role-filtered links. A phone would otherwise be stranded on
+// one screen with no way to reach the others.
 
 interface RailItem {
   label: string;
   icon: string;
   to: string;
   roles?: MemberRole[];
+  /** Match exactly, so /portal/inventory does not light up "My sales". */
+  end?: boolean;
 }
 
 const STAFF: MemberRole[] = ['marketing', 'production', 'finance', 'gm'];
 
+// Every tab lives inside the portal except Point of sale, which is the public
+// selling page. Staff still need it, so it stays one tap away; the logo (top of
+// the rail) is the door back out to the shop.
 const RAIL: RailItem[] = [
   { label: 'Point of sale', icon: 'M2 2h2l1.6 7.4h7.1L14 4.2H4.4', to: '/pos', roles: STAFF },
-  { label: 'My sales', icon: 'M3.4 2h9.2v12l-2.3-1.5L8 14l-2.3-1.5L3.4 14V2Z', to: '/portal', roles: STAFF },
-  { label: 'Inventory', icon: 'M8 1.8 13.6 4.5v7L8 14.2 2.4 11.5v-7L8 1.8Z', to: '/inventory', roles: STAFF },
+  { label: 'My sales', icon: 'M3.4 2h9.2v12l-2.3-1.5L8 14l-2.3-1.5L3.4 14V2Z', to: '/portal', end: true, roles: STAFF },
+  { label: 'Inventory', icon: 'M8 1.8 13.6 4.5v7L8 14.2 2.4 11.5v-7L8 1.8Z', to: '/portal/inventory', roles: STAFF },
   {
     label: 'Finance',
     icon: 'M8 1.6v12.8M11.2 4.4c0-1.3-1.4-2.1-3.2-2.1s-3.2.8-3.2 2.1 1.4 2.1 3.2 2.1 3.2.8 3.2 2.1-1.4 2.1-3.2 2.1-3.2-.8-3.2-2.1',
-    to: '/finance',
+    to: '/portal/finance',
     roles: ['finance', 'gm'],
   },
-  { label: 'Quota', icon: 'M2.6 13V8.4M6.6 13V5.2M10.6 13V9.2M14 13V3', to: '/quota', roles: ['gm'] },
+  { label: 'Quota', icon: 'M2.6 13V8.4M6.6 13V5.2M10.6 13V9.2M14 13V3', to: '/portal/quota', roles: ['gm'] },
   {
     label: 'Users',
-    icon: 'M6 5.6a2.4 2.4 0 1 0 0 .1M1.8 13.4c0-2.3 1.9-3.8 4.2-3.8s4.2 1.5 4.2 3.8M11 4.2a2 2 0 1 1 0 4M11.6 9.8c1.7.3 2.8 1.5 2.8 3.2',
-    to: '/users',
+    icon: 'M6 5.6a2.4 2.4 0 1 0 0 .1M1.8 13.4c0-2.3 1.9-3.8 4.2-3.8s4.2 1.5 4.2 3.8M11 4.2a2 0 1 1 0 4M11.6 9.8c1.7.3 2.8 1.5 2.8 3.2',
+    to: '/portal/users',
     roles: ['gm'],
   },
 ];
@@ -77,6 +83,7 @@ export default function SideRail() {
           <NavLink
             key={item.label}
             to={item.to}
+            end={item.end}
             className={({ isActive }) =>
               [
                 'flex items-center gap-2.5 rounded-md px-[11px] py-[9px] text-[11.5px] transition-colors max-md:whitespace-nowrap',

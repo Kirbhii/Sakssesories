@@ -65,11 +65,11 @@ export function useAuth(): AuthValue {
   return ctx;
 }
 
-/** Where each role lands after signing in. */
+/** Where each role lands after signing in — every door is inside the portal. */
 export const HOME_FOR: Record<MemberRole, string> = {
-  marketing: '/pos',
-  production: '/inventory',
-  finance: '/finance',
+  marketing: '/portal',
+  production: '/portal/inventory',
+  finance: '/portal/finance',
   gm: '/portal',
 };
 
