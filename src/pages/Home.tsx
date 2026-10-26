@@ -49,19 +49,16 @@ const GIFTS = [
     icon: 'M4 6.5h12l-1 10.5H5L4 6.5ZM7.2 6.5V5a2.8 2.8 0 0 1 5.6 0v1.5',
     title: 'Everyday accessories',
     body: 'For the person who already carries everything — and would rather carry one thing that does more.',
-    link: 'Shop the collection',
   },
   {
     icon: 'M3.2 7.6h13.6v9.4H3.2V7.6ZM2.6 7.6h14.8M10 7.6v9.4',
     title: 'Little gifts, big thought',
     body: 'Add engraving with initials, wrapped and ready. Two letters are free, and every extra letter is ₱2.',
-    link: 'Add engraving',
   },
   {
     icon: 'M10 2.8 17 6.2v7.6L10 17.2 3 13.8V6.2L10 2.8ZM3 6.2 10 9.6l7-3.4M10 9.6v7.6',
     title: 'Bulk & corporate orders',
     body: 'Wedding giveaways, team gifts, client tokens — tell us the quantity and we will make it work.',
-    link: 'Request a quote',
   },
 ];
 
@@ -702,12 +699,6 @@ export default function Home() {
                 <Icon d={g.icon} className="h-[17px] w-[17px] text-crimson-600" />
                 <h3 className="mt-4 font-serif text-[15px]">{g.title}</h3>
                 <p className="mt-2 text-[11.5px] leading-[1.7] text-ink-500">{g.body}</p>
-                <a
-                  href="#collection"
-                  className="mt-3.5 inline-block border-b border-crimson-600 pb-0.5 text-[10px] uppercase tracking-[0.1em] text-crimson-600"
-                >
-                  {g.link}
-                </a>
               </article>
             ))}
           </div>
