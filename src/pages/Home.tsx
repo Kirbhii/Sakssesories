@@ -206,6 +206,60 @@ export default function Home() {
     return () => window.clearTimeout(t);
   }, []);
 
+  // ── Scroll-in reveals ───────────────────────────────────────────────────
+  // Every section marked `data-reveal` fades up the first time it reaches the
+  // screen, then is left alone — scrolling back up should not replay it. If the
+  // visitor has asked for reduced motion, or the browser is too old to know what
+  // an IntersectionObserver is, everything is simply shown: content must never
+  // be left sitting at opacity 0 waiting for a script that will not run.
+  useEffect(() => {
+    const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
+    if (!nodes.length) return;
+
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (calm || typeof IntersectionObserver === 'undefined') {
+      nodes.forEach((n) => n.classList.add('is-in'));
+      return;
+    }
+
+    const show = (n: HTMLElement) => {
+      n.classList.add('is-in');
+      io.unobserve(n);
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) show(entry.target as HTMLElement);
+        });
+      },
+      // Fire as soon as the top edge crosses into the lower nine-tenths of the
+      // window, so the movement finishes while the block is being read rather
+      // than starting once it is already halfway up the screen.
+      { rootMargin: '0px 0px -10% 0px', threshold: 0 },
+    );
+
+    // A jump — the End key, a hash link, a restored scroll position — can put a
+    // block above the window without it ever intersecting. Nothing should be
+    // left invisible because it was skipped over, so anything already at or
+    // above the fold is shown on the spot.
+    const sweep = () => {
+      const fold = window.innerHeight * 0.9;
+      nodes.forEach((n) => {
+        if (!n.classList.contains('is-in') && n.getBoundingClientRect().top < fold) show(n);
+      });
+    };
+
+    nodes.forEach((n) => io.observe(n));
+    sweep();
+    window.addEventListener('scroll', sweep, { passive: true });
+
+    return () => {
+      io.disconnect();
+      window.removeEventListener('scroll', sweep);
+    };
+  }, []);
+
   useEffect(() => {
     if (hold) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -216,33 +270,17 @@ export default function Home() {
   const nextHero = () => setHero((i) => (i + 1) % SLIDES.length);
 
   // ── The everyday edit rail ──────────────────────────────────────────────
-  // Three photos side by side on a desktop; one at a time on a phone. The
-  // arrows scroll the rail, and they switch off when everything already fits
-  // — a disabled control is honest, a button that does nothing is not.
+  // Three photos side by side on a desktop; one at a time on a phone. No arrow
+  // buttons: on a wide screen all three already fit, and on a narrow one the
+  // photos are swiped. The thin bar underneath is what says "there is more",
+  // and it moves with the swipe.
   const railRef = useRef<HTMLDivElement>(null);
   const [shot, setShot] = useState(0);
-  const [canScroll, setCanScroll] = useState(false);
-
-  useEffect(() => {
-    const el = railRef.current;
-    if (!el) return;
-    const measure = () => setCanScroll(el.scrollWidth > el.clientWidth + 4);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   const stepOf = (el: HTMLDivElement) => {
     const card = el.firstElementChild as HTMLElement | null;
     return card ? card.offsetWidth + 22 : el.clientWidth;
   };
-
-  function page(dir: number) {
-    const el = railRef.current;
-    if (!el) return;
-    el.scrollBy({ left: dir * stepOf(el), behavior: 'smooth' });
-  }
 
   function trackScroll() {
     const el = railRef.current;
@@ -300,20 +338,20 @@ export default function Home() {
         />
 
         <div className="relative z-10 flex flex-1 flex-col justify-center py-16 pr-14 pl-[max(2rem,calc((100vw-1240px)/2+2rem))] max-lg:px-8 max-md:px-5">
-          <p className="eyebrow">
+          <p className="eyebrow hero-in [--reveal-delay:80ms]">
             <span className="h-[5px] w-[5px] rounded-full bg-current" />
             Handmade in the Philippines
           </p>
-          <h1 className="max-w-[14ch] text-[clamp(40px,4.4vw,58px)] leading-[1.06] text-wine-700">
+          <h1 className="hero-in max-w-[14ch] text-[clamp(40px,4.4vw,58px)] leading-[1.06] text-wine-700 [--reveal-delay:180ms]">
             A little style.
             <br />A clearer day.
           </h1>
-          <p className="mt-6 max-w-[38ch] text-[14.5px] leading-[1.75] text-ink-900/85">
+          <p className="hero-in mt-6 max-w-[38ch] text-[14.5px] leading-[1.75] text-ink-900/85 [--reveal-delay:300ms]">
             Meet ClearChain — a leather keychain with a microfiber pad, so your glasses and screens
             stay clean all day.
           </p>
 
-          <div className="mt-7">
+          <div className="hero-in mt-7 [--reveal-delay:400ms]">
             <Link
               to="/pos"
               className="inline-flex items-center gap-2.5 rounded-pill bg-crimson-600 px-[22px] py-3 text-[12px] font-medium text-white transition-colors hover:bg-wine-800"
@@ -321,56 +359,61 @@ export default function Home() {
               Shop the Collection <ArrowRight />
             </Link>
           </div>
-        </div>
 
-        {/* Slide label, caption and pager — straight on the photo, no card.
-            The active slide is a maroon bar rather than a dot, so the eye
-            reads "one of four" without a counter doing the talking. */}
-        <div className="relative z-10 mx-7 mb-7 max-md:mx-5 max-md:mb-6 lg:absolute lg:bottom-8 lg:left-[max(2rem,calc((100vw-1240px)/2+2rem))] lg:mx-0 lg:mb-0 lg:w-[440px]">
-          <p className="text-[10.5px] font-semibold uppercase tracking-[0.26em] text-crimson-600">
-            {SLIDES[hero].label}
-          </p>
-          <p className="mt-2.5 max-w-[26ch] font-serif text-[24px] leading-[1.2] text-wine-700 max-md:text-[21px]">
-            {SLIDES[hero].caption}
-          </p>
+          {/* Photo label, caption and pager — straight on the image, no card.
+              They sit in the same column as the words above rather than pinned
+              to the bottom corner, so the whole hero reads down one axis
+              instead of leaving a lonely control floating in the dead space.
+              The active slide is a maroon bar rather than a dot, so the eye
+              reads "one of four" without a counter doing the talking. */}
+          <div className="hero-in mt-11 w-full max-w-[440px] [--reveal-delay:520ms]">
+            <p className="text-[10.5px] font-semibold uppercase tracking-[0.26em] text-crimson-600">
+              {SLIDES[hero].label}
+            </p>
+            <p className="mt-2.5 max-w-[26ch] font-serif text-[24px] leading-[1.2] text-wine-700 max-md:text-[21px]">
+              {SLIDES[hero].caption}
+            </p>
 
-          <div className="mt-5 flex items-center gap-4">
-            <div className="flex items-center">
-              {SLIDES.map((s, i) => (
-                <button
-                  key={s.src}
-                  onClick={() => setHero(i)}
-                  aria-label={`Photo ${i + 1} of ${SLIDES.length}`}
-                  aria-current={i === hero}
-                  className="grid h-7 place-items-center px-[4px]"
-                >
-                  <span
-                    className={[
-                      'block rounded-full transition-all duration-300',
-                      i === hero
-                        ? 'h-[4px] w-10 bg-crimson-600'
-                        : 'h-[5px] w-[5px] bg-wine-800/40 hover:bg-wine-800/70',
-                    ].join(' ')}
+            <div className="mt-5 flex items-center gap-5">
+              {/* Pulled left by the dots' own padding, so the bar starts on the
+                  same edge as the label and the caption above it. */}
+              <div className="-ml-[4px] flex items-center">
+                {SLIDES.map((s, i) => (
+                  <button
+                    key={s.src}
+                    onClick={() => setHero(i)}
+                    aria-label={`Photo ${i + 1} of ${SLIDES.length}`}
+                    aria-current={i === hero}
+                    className="group grid h-7 place-items-center px-[4px]"
+                  >
+                    <span
+                      className={[
+                        'block rounded-full transition-all duration-300',
+                        i === hero
+                          ? 'h-[4px] w-10 bg-crimson-600'
+                          : 'h-[5px] w-[5px] bg-wine-800/40 group-hover:bg-wine-800/70',
+                      ].join(' ')}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={nextHero}
+                aria-label="Next photo"
+                className="grid h-9 w-9 flex-none place-items-center rounded-full border border-wine-800/25 text-wine-800 transition-colors hover:border-wine-800 hover:bg-wine-800 hover:text-white"
+              >
+                <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">
+                  <path
+                    d="M4.2 2.4 7.8 6l-3.6 3.6"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
-                </button>
-              ))}
+                </svg>
+              </button>
             </div>
-
-            <button
-              onClick={nextHero}
-              aria-label="Next photo"
-              className="ml-2 grid h-9 w-9 flex-none place-items-center rounded-full border border-wine-800/25 text-wine-800 transition-colors hover:border-wine-800 hover:bg-wine-800 hover:text-white"
-            >
-              <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">
-                <path
-                  d="M4.2 2.4 7.8 6l-3.6 3.6"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
           </div>
         </div>
       </section>
@@ -392,7 +435,7 @@ export default function Home() {
 
       {/* ── Why ──────────────────────────────────────────────────────────── */}
       <section id="story" className="py-[82px] max-md:py-14">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40fr_60fr] items-start gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
+        <div data-reveal className="reveal mx-auto grid w-full max-w-[1240px] grid-cols-[40fr_60fr] items-start gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
           <div>
             <p className="eyebrow">
               <span className="h-[5px] w-[5px] rounded-full bg-current" />
@@ -421,14 +464,14 @@ export default function Home() {
 
       {/* ── More than a keychain ─────────────────────────────────────────── */}
       <section className="bg-blush-100 py-[82px] max-md:py-14">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[46fr_54fr] items-center gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-9">
-          <div className="overflow-hidden rounded-[14px] bg-blush-200">
+        <div data-reveal className="reveal mx-auto grid w-full max-w-[1240px] grid-cols-[46fr_54fr] items-center gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-9">
+          <div className="group overflow-hidden rounded-[14px] bg-blush-200">
             <img
               src="/img/meet-clearchain.webp"
               alt="A brown leather bag with keys and the black heart ClearChain clipped to the zip"
               width={1100}
               height={1375}
-              className="aspect-[4/5] w-full object-cover"
+              className="aspect-[4/5] w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.03]"
             />
           </div>
 
@@ -463,7 +506,7 @@ export default function Home() {
 
       {/* ── Steps ────────────────────────────────────────────────────────── */}
       <section className="py-[82px] max-md:py-14">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[32fr_68fr] items-start gap-10 px-8 max-lg:grid-cols-1">
+        <div data-reveal className="reveal mx-auto grid w-full max-w-[1240px] grid-cols-[32fr_68fr] items-start gap-10 px-8 max-lg:grid-cols-1">
           <div>
             <p className="eyebrow">
               <span className="h-[5px] w-[5px] rounded-full bg-current" />
@@ -489,7 +532,7 @@ export default function Home() {
 
       {/* ── Collection ───────────────────────────────────────────────────── */}
       <section id="collection" className="bg-blush-100 py-[82px] max-md:py-14">
-        <div className="mx-auto w-full max-w-[1240px] px-8">
+        <div data-reveal className="reveal mx-auto w-full max-w-[1240px] px-8">
           <div className="mb-[34px] flex items-end justify-between gap-8 max-md:flex-col max-md:items-start max-md:gap-3.5">
             <div>
               <p className="eyebrow">
@@ -511,14 +554,14 @@ export default function Home() {
               return (
                 <article
                   key={v.key}
-                  className="overflow-hidden rounded bg-white transition-shadow hover:shadow-[0_18px_40px_-24px_rgba(74,17,26,0.4)]"
+                  className="group overflow-hidden rounded bg-white transition-shadow hover:shadow-[0_18px_40px_-24px_rgba(74,17,26,0.4)]"
                 >
                   <img
                     src={meta.img}
                     alt={meta.alt}
                     width={1600}
                     height={1000}
-                    className="aspect-[16/10] w-full object-cover"
+                    className="aspect-[16/10] w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.035]"
                   />
 
                   <div className="px-5 pb-5 pt-4">
@@ -581,7 +624,7 @@ export default function Home() {
 
       {/* ── Goes where your day goes ─────────────────────────────────────── */}
       <section className="bg-blush-50 py-[82px] max-md:py-14">
-        <div className="mx-auto w-full max-w-[1240px] px-8">
+        <div data-reveal className="reveal mx-auto w-full max-w-[1240px] px-8">
           <div className="mb-[30px] flex flex-wrap items-end justify-between gap-8 max-md:gap-4">
             <div className="max-md:w-full">
               <p className="eyebrow">
@@ -591,19 +634,6 @@ export default function Home() {
               <h2 className="text-[clamp(28px,2.7vw,37px)] leading-[1.14]">
                 Goes where your day goes.
               </h2>
-            </div>
-            <div className="flex flex-none gap-2 max-md:ml-auto">
-              {[-1, 1].map((dir) => (
-                <button
-                  key={dir}
-                  onClick={() => page(dir)}
-                  disabled={!canScroll || (dir < 0 ? shot === 0 : shot === DAYS.length - 1)}
-                  aria-label={dir < 0 ? 'Previous photo' : 'Next photo'}
-                  className="grid h-[34px] w-[34px] place-items-center rounded-[3px] border border-blush-300 bg-white text-ink-700 transition-colors hover:border-wine-800 hover:bg-wine-800 hover:text-white disabled:pointer-events-none disabled:opacity-55"
-                >
-                  <ArrowRight className={dir < 0 ? 'h-3 w-3 rotate-180' : 'h-3 w-3'} />
-                </button>
-              ))}
             </div>
           </div>
 
@@ -615,7 +645,7 @@ export default function Home() {
             {DAYS.map((d) => (
               <article
                 key={d.title}
-                className="w-full flex-none snap-start md:w-[calc((100%-22px)/2)] lg:w-[calc((100%-44px)/3)]"
+                className="group w-full flex-none snap-start md:w-[calc((100%-22px)/2)] lg:w-[calc((100%-44px)/3)]"
               >
                 <div className="aspect-square overflow-hidden bg-blush-200">
                   <img
@@ -623,7 +653,7 @@ export default function Home() {
                     alt={d.alt}
                     loading="lazy"
                     style={{ objectPosition: d.focus }}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]"
                   />
                 </div>
                 <h3 className="mt-3.5 font-serif text-[14px] leading-[1.3] text-ink-900">{d.title}</h3>
@@ -654,7 +684,7 @@ export default function Home() {
 
       {/* ── Gifts ────────────────────────────────────────────────────────── */}
       <section className="bg-blush-100 py-[82px] max-md:py-14">
-        <div className="mx-auto w-full max-w-[1240px] px-8">
+        <div data-reveal className="reveal mx-auto w-full max-w-[1240px] px-8">
           <p className="eyebrow">
             <span className="h-[5px] w-[5px] rounded-full bg-current" />
             The little things
@@ -686,7 +716,7 @@ export default function Home() {
 
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
       <section className="py-[82px] max-md:py-14">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40fr_60fr] items-start gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
+        <div data-reveal className="reveal mx-auto grid w-full max-w-[1240px] grid-cols-[40fr_60fr] items-start gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
           <div>
             <p className="eyebrow">
               <span className="h-[5px] w-[5px] rounded-full bg-current" />
@@ -725,7 +755,7 @@ export default function Home() {
 
       {/* ── CTA ──────────────────────────────────────────────────────────── */}
       <section className="bg-wine-800 py-[62px] text-center">
-        <div className="mx-auto w-full max-w-[1240px] px-8">
+        <div data-reveal className="reveal mx-auto w-full max-w-[1240px] px-8">
           <h2 className="font-serif text-[clamp(26px,3vw,38px)] italic text-white">
             Sakses anytime, Style everyday
           </h2>

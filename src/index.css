@@ -92,6 +92,56 @@
   @apply relative pl-3;
 }
 
+/* Scroll-in reveal. Every marked block starts a little low and transparent,
+   then eases into place the first time it comes into view. One shared rule, so
+   the whole site's pacing can be changed from here — and a hard off switch for
+   anyone who has asked their system to reduce motion. */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.8s cubic-bezier(0.22, 0.7, 0.3, 1),
+    transform 0.8s cubic-bezier(0.22, 0.7, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* The hero is already on screen when the page opens, so it does not wait to be
+   scrolled to. It steps in on its own, one line after another — pure CSS, so it
+   still plays if the observer below never runs. */
+.hero-in {
+  animation: skph-rise 0.9s cubic-bezier(0.22, 0.7, 0.3, 1) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+@keyframes skph-rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal.is-in {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .hero-in {
+    animation: none;
+  }
+}
+
 /* Marquee for the tagline band */
 @keyframes skph-marquee {
   from {
