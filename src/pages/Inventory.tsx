@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
 import { peso, peso2, SHAPES } from '@/lib/data';
-import { ROLE_LABEL, useAuth } from '@/lib/auth';
-import type { MemberRole } from '@/lib/quota';
+import SideRail from '@/components/SideRail';
 import {
   MATERIALS,
   COST_BREAKDOWN,
@@ -15,52 +13,6 @@ import {
 // a second copy of it typed into this screen. If the price moves in data.ts,
 // the cost card moves with it.
 const SELL_AT = SHAPES[0].price;
-
-// ─── Production rail ────────────────────────────────────────────────────────
-// Inventory is the production module, so it keeps a vertical rail instead of the
-// sales navbar. It still links back to the sales side.
-//
-// Below `md` the rail turns into a horizontal strip that scrolls sideways, so it
-// carries the same role-filtered links as the main navbar — otherwise a phone
-// would be stranded on this one screen with no way to reach the GM pages.
-
-interface RailItem {
-  label: string;
-  icon: string;
-  to: string;
-  roles?: MemberRole[];
-}
-
-const STAFF: MemberRole[] = ['marketing', 'production', 'finance', 'gm'];
-
-const RAIL: RailItem[] = [
-  { label: 'Point of sale', icon: 'M2 2h2l1.6 7.4h7.1L14 4.2H4.4', to: '/pos', roles: STAFF },
-  {
-    label: 'My sales',
-    icon: 'M3.4 2h9.2v12l-2.3-1.5L8 14l-2.3-1.5L3.4 14V2Z',
-    to: '/portal',
-    roles: STAFF,
-  },
-  {
-    label: 'Inventory',
-    icon: 'M8 1.8 13.6 4.5v7L8 14.2 2.4 11.5v-7L8 1.8Z',
-    to: '/inventory',
-    roles: STAFF,
-  },
-  {
-    label: 'Finance',
-    icon: 'M8 1.6v12.8M11.2 4.4c0-1.3-1.4-2.1-3.2-2.1s-3.2.8-3.2 2.1 1.4 2.1 3.2 2.1 3.2.8 3.2 2.1-1.4 2.1-3.2 2.1-3.2-.8-3.2-2.1',
-    to: '/finance',
-    roles: ['finance', 'gm'],
-  },
-  { label: 'Quota', icon: 'M2.6 13V8.4M6.6 13V5.2M10.6 13V9.2M14 13V3', to: '/quota', roles: ['gm'] },
-  {
-    label: 'Users',
-    icon: 'M6 5.6a2.4 2.4 0 1 0 0 .1M1.8 13.4c0-2.3 1.9-3.8 4.2-3.8s4.2 1.5 4.2 3.8M11 4.2a2 2 0 1 1 0 4M11.6 9.8c1.7.3 2.8 1.5 2.8 3.2',
-    to: '/users',
-    roles: ['gm'],
-  },
-];
 
 const STATUS_STYLE: Record<string, string> = {
   ok: 'bg-ok-100 text-ok-600',
@@ -111,11 +63,8 @@ function KpiCard({
 }
 
 export default function Inventory() {
-  const { member, role } = useAuth();
   const [selectedSku, setSelectedSku] = useState('LF-PL');
   const [query, setQuery] = useState('');
-
-  const rail = RAIL.filter((item) => !item.roles || (role !== null && item.roles.includes(role)));
 
   const rows = useMemo(
     () =>
@@ -132,67 +81,7 @@ export default function Inventory() {
 
   return (
     <div className="flex min-h-screen bg-blush-50 max-md:flex-col">
-      {/* ── Rail ─────────────────────────────────────────────────────────── */}
-      <aside className="sticky top-0 flex h-screen w-[232px] min-w-0 flex-none flex-col bg-wine-900 px-4 pb-[18px] pt-[22px] max-md:static max-md:h-auto max-md:w-full max-md:flex-row max-md:items-center max-md:gap-4 max-md:overflow-x-auto max-md:px-4 max-md:py-3">
-        <Link
-          to="/"
-          className="flex flex-none items-center gap-2.5 whitespace-nowrap px-2 pb-[26px] max-md:px-0 max-md:pb-0"
-        >
-          <img
-            src="/img/logo-mark-light.png"
-            alt=""
-            width={640}
-            height={531}
-            className="h-8 w-auto flex-none md:h-9"
-          />
-          <span className="flex flex-col">
-            <span className="block font-serif text-[17px] leading-tight text-white">Saksesories PH</span>
-            <span className="mt-1 block text-[7px] uppercase tracking-[0.22em] text-white/40 max-md:hidden">
-              by Saksesories
-            </span>
-          </span>
-        </Link>
-
-        <nav className="grid gap-0.5 max-md:flex max-md:gap-1">
-          {rail.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.to}
-              className={({ isActive }) =>
-                [
-                  'flex items-center gap-2.5 rounded-md px-[11px] py-[9px] text-[11.5px] transition-colors max-md:whitespace-nowrap',
-                  isActive
-                    ? 'bg-white/12 text-white'
-                    : 'text-white/60 hover:bg-white/5 hover:text-white/90',
-                ].join(' ')
-              }
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" className="h-3 w-3 flex-none">
-                <path d={item.icon} strokeLinejoin="round" strokeLinecap="round" />
-              </svg>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="mt-auto px-2 max-md:hidden">
-          <p className="mb-1.5 text-[7.5px] uppercase tracking-[0.2em] text-white/35">Staff access</p>
-          <p className="mb-3.5 border-b border-white/10 pb-3.5 text-[9.5px] leading-[1.6] text-white/40">
-            Stock changes are logged with your name, so every adjustment can be traced.
-          </p>
-          <div className="flex items-center gap-2.5">
-            <span className="h-[26px] w-[26px] flex-none rounded-full border border-white/15 bg-white/15" />
-            <div className="min-w-0">
-              <strong className="block truncate text-[10.5px] font-medium text-white/90">
-                {member?.name ?? 'Signed out'}
-              </strong>
-              <small className="block truncate text-[8.5px] text-white/40">
-                {member ? ROLE_LABEL[member.role] : 'No session'}
-              </small>
-            </div>
-          </div>
-        </div>
-      </aside>
+      <SideRail />
 
       {/* ── Content ──────────────────────────────────────────────────────── */}
       <div className="min-w-0 flex-1">

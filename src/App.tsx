@@ -55,14 +55,10 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
 
-        <Route
-          path="/pos"
-          element={
-            <RequireAuth>
-              <Pos />
-            </RequireAuth>
-          }
-        />
+        {/* The POS is open to everyone — a signed-out visitor is a customer
+            ordering for themselves (cash locked, no quota). A signed-in member
+            is staff ringing up a sale (cash enabled, quota shown). */}
+        <Route path="/pos" element={<Pos />} />
         <Route
           path="/portal"
           element={

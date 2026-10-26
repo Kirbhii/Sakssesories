@@ -117,13 +117,15 @@ export default function Pos() {
     fulfilment: 'pickup',
     note: '',
   });
-  const [payment, setPayment] = useState<PaymentMethod>('cash');
+  const [payment, setPayment] = useState<PaymentMethod>(member ? 'cash' : 'gcash');
   const [cash, setCash] = useState('');
   const [done, setDone] = useState(false);
 
-  // RequireAuth in App.tsx already blocks a signed-out visitor, so this is
-  // unreachable — but the quota below belongs to a real person or to nobody.
-  if (!member) return null;
+  // The POS is open to everyone. A signed-out visitor is a customer ordering
+  // for themselves (cash locked, no quota); a signed-in member is staff ringing
+  // up a sale (cash enabled, quota shown). `member` is null for the former, so
+  // every member-only bit below is guarded by `isStaff`.
+  const isStaff = !!member;
 
   const variant = VARIANTS.find((v) => v.key === `${shape}-${colour}`);
   const stock = variant?.stock ?? 0;
@@ -143,10 +145,10 @@ export default function Pos() {
   const cashValue = Math.round(Number(cash || 0) * 100);
   const change = cashValue - total;
 
-  const meQuota = quotaOf(member.id);
-  const meRoom = roomOf(member.id);
-  const recipient = creditRecipient(member.id);
-  const blocked = recipient === null;
+  const meQuota = member ? quotaOf(member.id) : 0;
+  const meRoom = member ? roomOf(member.id) : 0;
+  const recipient = member ? creditRecipient(member.id) : null;
+  const blocked = isStaff && recipient === null;
   const creditName = recipient ? memberOf(recipient)?.name : null;
 
   const missing: string[] = [];
@@ -219,7 +221,8 @@ export default function Pos() {
   }
 
   function complete() {
-    if (!cart.length || blocked || missing.length) return;
+    if (!cart.length || missing.length) return;
+    if (isStaff && blocked) return;
     setDone(true);
     window.setTimeout(() => {
       setDone(false);
@@ -626,22 +629,38 @@ export default function Pos() {
                 Payment method
               </span>
               <div className="grid grid-cols-3 gap-1.5">
-                {PAYMENTS.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setPayment(p.id)}
-                    aria-pressed={payment === p.id}
-                    className={[
-                      'rounded-[5px] border py-2 text-[10px] transition-colors',
-                      payment === p.id
-                        ? 'border-crimson-600 bg-crimson-600 text-white'
-                        : 'border-blush-300 bg-white text-ink-500',
-                    ].join(' ')}
-                  >
-                    {p.label}
-                  </button>
-                ))}
+                {PAYMENTS.map((p) => {
+                  const locked = p.id === 'cash' && !isStaff;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => !locked && setPayment(p.id)}
+                      disabled={locked}
+                      aria-pressed={payment === p.id}
+                      aria-disabled={locked}
+                      title={locked ? 'Cash is for staff selling on-site' : undefined}
+                      className={[
+                        'rounded-[5px] border py-2 text-[10px] transition-colors',
+                        locked
+                          ? 'cursor-not-allowed border-blush-300 bg-blush-50 text-ink-300 line-through'
+                          : '',
+                        payment === p.id
+                          ? 'border-crimson-600 bg-crimson-600 text-white'
+                          : 'border-blush-300 bg-white text-ink-500',
+                      ].join(' ')}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
               </div>
+
+              {!isStaff && (
+                <p className="mt-1.5 text-[9px] leading-[1.5] text-ink-300">
+                  Cash is for staff selling on-site. Choose GCash or Card, and the team will confirm
+                  payment when your order is ready.
+                </p>
+              )}
             </div>
 
             {payment === 'cash' && total > 0 && (
@@ -675,13 +694,14 @@ export default function Pos() {
               </div>
             )}
 
-            {/* Quota */}
-            <div
-              className={[
-                'mt-3.5 rounded-[5px] border px-3 py-2.5',
-                meRoom === 0 ? 'border-warn-600/40 bg-warn-100' : 'border-blush-300 bg-blush-50',
-              ].join(' ')}
-            >
+            {/* Quota — staff only; a customer has no quota to fill */}
+            {isStaff && (
+              <div
+                className={[
+                  'mt-3.5 rounded-[5px] border px-3 py-2.5',
+                  meRoom === 0 ? 'border-warn-600/40 bg-warn-100' : 'border-blush-300 bg-blush-50',
+                ].join(' ')}
+              >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[8px] uppercase tracking-[0.15em] text-ink-300">
                   {PLAN.label} quota · {member.name}
@@ -711,11 +731,12 @@ export default function Pos() {
                     ? `Full. This sale is credited to ${creditName} instead.`
                     : `Full, and the team is at ${PLAN.team}/${PLAN.team}. No more pieces can be recorded.`}
               </p>
-            </div>
+              </div>
+            )}
 
             <button
               onClick={complete}
-              disabled={!cart.length || blocked || missing.length > 0}
+              disabled={!cart.length || (isStaff && blocked) || missing.length > 0}
               className={[
                 'mt-3.5 w-full justify-center rounded-pill px-[18px] py-3 text-[11.5px] font-medium text-white transition-colors',
                 blocked ? 'bg-ink-500' : done ? 'bg-ok-600' : 'bg-crimson-600 hover:bg-wine-800',
@@ -725,8 +746,10 @@ export default function Pos() {
               {blocked
                 ? `Team quota reached · ${PLAN.team}/${PLAN.team}`
                 : done
-                  ? `Sale recorded — ${creditName} ✓`
-                  : `Complete sale · ${peso(total)}`}
+                  ? isStaff
+                    ? `Sale recorded — ${creditName} ✓`
+                    : 'Order sent ✓'
+                  : `${isStaff ? 'Complete sale' : 'Send order'} · ${peso(total)}`}
             </button>
 
             {missing.length > 0 && cart.length > 0 && (

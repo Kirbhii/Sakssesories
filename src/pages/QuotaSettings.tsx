@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import SiteHeader from '@/components/SiteHeader';
+import SideRail from '@/components/SideRail';
 import { PLAN, activeMembers, splitEven } from '@/lib/quota';
 
 /**
@@ -23,9 +23,10 @@ export default function QuotaSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-blush-50">
-      <SiteHeader />
+    <div className="flex min-h-screen bg-blush-50 max-md:flex-col">
+      <SideRail />
 
+      <div className="min-w-0 flex-1">
       <main className="mx-auto max-w-[1100px] px-7 pb-9 pt-[26px] max-md:px-4">
         <h1 className="text-[clamp(26px,2.3vw,31px)]">Set the month.</h1>
         <p className="mt-1.5 max-w-[64ch] text-[11.5px] leading-[1.7] text-ink-500">
@@ -121,6 +122,7 @@ export default function QuotaSettings() {
           </span>
         </div>
       </main>
+      </div>
     </div>
   );
 }

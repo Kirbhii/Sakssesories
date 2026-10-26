@@ -24,7 +24,10 @@ const STAFF: MemberRole[] = ['marketing', 'production', 'finance', 'gm'];
 
 const NAV: NavItem[] = [
   { to: '/', label: 'Shop', end: true },
-  { to: '/pos', label: 'Point of sale', roles: STAFF },
+  // The POS is open to everyone — a signed-out visitor is a customer building
+  // their own order, a signed-in member is staff. So it shows on the navbar
+  // for both, while the rest of the staff doors stay role-gated.
+  { to: '/pos', label: 'Point of sale' },
   { to: '/portal', label: 'My sales', roles: STAFF },
   { to: '/inventory', label: 'Inventory', roles: STAFF },
   { to: '/finance', label: 'Finance', roles: ['finance', 'gm'] },

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import SiteHeader from '@/components/SiteHeader';
+import SideRail from '@/components/SideRail';
 import { useAuth } from '@/lib/auth';
 import { peso } from '@/lib/data';
 import {
@@ -115,9 +115,10 @@ export default function Portal() {
   const LAST = COLS.length - 1;
 
   return (
-    <div className="min-h-screen bg-blush-50">
-      <SiteHeader />
+    <div className="flex min-h-screen bg-blush-50 max-md:flex-col">
+      <SideRail />
 
+      <div className="min-w-0 flex-1">
       <main className="mx-auto max-w-[1560px] px-7 pb-9 pt-[26px] max-md:px-4">
         <div className="flex items-start justify-between gap-6 max-md:flex-col max-md:gap-3.5">
           <div>
@@ -424,6 +425,7 @@ export default function Portal() {
           </div>
         </section>
       </main>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import SiteHeader from '@/components/SiteHeader';
+import SideRail from '@/components/SideRail';
 import { MEMBERS, PLAN, quotaOf, roomOf } from '@/lib/quota';
 import { ROLE_LABEL } from '@/lib/auth';
 
@@ -6,9 +6,10 @@ const DEPT_NAME = Object.fromEntries(PLAN.departments.map((d) => [d.id, d.name])
 
 export default function Users() {
   return (
-    <div className="min-h-screen bg-blush-50">
-      <SiteHeader />
+    <div className="flex min-h-screen bg-blush-50 max-md:flex-col">
+      <SideRail />
 
+      <div className="min-w-0 flex-1">
       <main className="mx-auto max-w-[1100px] px-7 pb-9 pt-[26px] max-md:px-4">
         <div className="flex items-start justify-between gap-6 max-md:flex-col max-md:gap-3.5">
           <div>
@@ -84,6 +85,7 @@ export default function Users() {
           the database.
         </p>
       </main>
+      </div>
     </div>
   );
 }
