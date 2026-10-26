@@ -43,11 +43,11 @@ export const SHAPES: Shape[] = [
 ];
 
 export const COLOURS: Colour[] = [
-  { id: 'navy', name: 'Navy blue', hex: '#1f2f52', sku: 'NV' },
-  { id: 'tan', name: 'Tan', hex: '#b9855a', sku: 'TN' },
-  { id: 'pink', name: 'Pink', hex: '#e8b4bd', sku: 'PK' },
+  { id: 'navy', name: 'Navy blue', hex: '#14233f', sku: 'NV' },
+  { id: 'tan', name: 'Tan', hex: '#8a5a33', sku: 'TN' },
+  { id: 'pink', name: 'Pink', hex: '#f4cfd6', sku: 'PK' },
   { id: 'maroon', name: 'Maroon', hex: '#6b1f2a', sku: 'MR' },
-  { id: 'purple', name: 'Purple', hex: '#5b3f6e', sku: 'PL' },
+  { id: 'purple', name: 'Purple', hex: '#b9a6cc', sku: 'PL' },
   { id: 'black', name: 'Black', hex: '#1a1a1a', sku: 'BK' },
 ];
 
