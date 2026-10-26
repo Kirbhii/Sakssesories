@@ -293,37 +293,18 @@ export default function Home() {
             A little style.
             <br />A clearer day.
           </h1>
-          <p className="mt-6 max-w-[42ch] text-[14.5px] leading-[1.75] text-ink-900/85">
-            Meet ClearChain — a leather keychain with a microfiber pad, made to keep your glasses,
-            screens, and everyday lenses clean, clear, and close at hand.
+          <p className="mt-6 max-w-[38ch] text-[14.5px] leading-[1.75] text-ink-900/85">
+            Meet ClearChain — a leather keychain with a microfiber pad, so your glasses and screens
+            stay clean all day.
           </p>
 
-          <div className="mt-7 flex flex-wrap gap-2.5">
+          <div className="mt-7">
             <Link
               to="/pos"
               className="inline-flex items-center gap-2.5 rounded-pill bg-crimson-600 px-[22px] py-3 text-[12px] font-medium text-white transition-colors hover:bg-wine-800"
             >
               Shop the Collection <ArrowRight />
             </Link>
-            <a
-              href="#story"
-              className="inline-flex items-center rounded-pill border border-blush-300 px-[22px] py-3 text-[12px] font-medium text-ink-900 transition-colors hover:border-wine-800 hover:text-wine-800"
-            >
-              Our Story
-            </a>
-          </div>
-
-          <div className="mt-9 flex gap-[26px]">
-            {['Find your shape', 'See the colours'].map((label) => (
-              <a
-                key={label}
-                href="#collection"
-                className="inline-flex items-center gap-2 border-b border-transparent pb-0.5 text-[11px] text-ink-700 transition-colors hover:border-crimson-600 hover:text-crimson-600"
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-crimson-600/60" />
-                {label}
-              </a>
-            ))}
           </div>
         </div>
 
@@ -360,12 +341,10 @@ export default function Home() {
               ))}
             </div>
 
-            <span aria-hidden className="h-3.5 w-px bg-wine-800/20" />
-
             <button
               onClick={nextHero}
               aria-label="Next photo"
-              className="grid h-9 w-9 flex-none place-items-center rounded-full border border-wine-800/25 text-wine-800 transition-colors hover:border-wine-800 hover:bg-wine-800 hover:text-white"
+              className="ml-2 grid h-9 w-9 flex-none place-items-center rounded-full border border-wine-800/25 text-wine-800 transition-colors hover:border-wine-800 hover:bg-wine-800 hover:text-white"
             >
               <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">
                 <path
@@ -377,10 +356,6 @@ export default function Home() {
                 />
               </svg>
             </button>
-
-            <span className="num text-[10.5px] tracking-[0.16em] text-wine-800/55">
-              {String(hero + 1).padStart(2, '0')} / {String(SLIDES.length).padStart(2, '0')}
-            </span>
           </div>
         </div>
       </section>
