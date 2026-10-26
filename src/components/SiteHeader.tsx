@@ -65,12 +65,25 @@ export default function SiteHeader({ strip }: SiteHeaderProps) {
 
       <header className="sticky top-0 z-40 border-b border-blush-300/60 bg-white">
         <div className="mx-auto flex h-[64px] w-full max-w-[1240px] items-center justify-between gap-4 px-4 md:h-[76px] md:gap-6 md:px-8">
-          <NavLink to="/" className="flex min-w-0 flex-col" onClick={() => setOpen(false)}>
-            <span className="truncate font-serif text-[18px] leading-[1.1] tracking-[-0.01em] text-ink-900 md:text-[20px]">
-              Saksesories PH
-            </span>
-            <span className="truncate text-[7.5px] uppercase tracking-[0.2em] text-ink-300">
-              Sakses anytime, Style anytime
+          <NavLink
+            to="/"
+            className="flex min-w-0 items-center gap-2.5 md:gap-3"
+            onClick={() => setOpen(false)}
+          >
+            <img
+              src="/img/logo-mark.png"
+              alt=""
+              width={220}
+              height={203}
+              className="h-8 w-auto flex-none md:h-11"
+            />
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate font-serif text-[18px] leading-[1.1] tracking-[-0.01em] text-ink-900 md:text-[20px]">
+                Saksesories PH
+              </span>
+              <span className="truncate text-[7.5px] uppercase tracking-[0.2em] text-ink-300">
+                Sakses anytime, Style anytime
+              </span>
             </span>
           </NavLink>
 

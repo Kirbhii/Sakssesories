@@ -129,10 +129,22 @@ export default function Inventory() {
     <div className="flex min-h-screen bg-blush-50 max-md:flex-col">
       {/* ── Rail ─────────────────────────────────────────────────────────── */}
       <aside className="sticky top-0 flex h-screen w-[232px] min-w-0 flex-none flex-col bg-wine-900 px-4 pb-[18px] pt-[22px] max-md:static max-md:h-auto max-md:w-full max-md:flex-row max-md:items-center max-md:gap-4 max-md:overflow-x-auto max-md:px-4 max-md:py-3">
-        <Link to="/" className="flex-none whitespace-nowrap px-2 pb-[26px] max-md:px-0 max-md:pb-0">
-          <span className="block font-serif text-[17px] leading-tight text-white">Saksesories PH</span>
-          <span className="mt-1 block text-[7px] uppercase tracking-[0.22em] text-white/40 max-md:hidden">
-            by Saksesories
+        <Link
+          to="/"
+          className="flex flex-none items-center gap-2.5 whitespace-nowrap px-2 pb-[26px] max-md:px-0 max-md:pb-0"
+        >
+          <img
+            src="/img/logo-mark.png"
+            alt=""
+            width={220}
+            height={203}
+            className="h-8 w-auto flex-none md:h-9"
+          />
+          <span className="flex flex-col">
+            <span className="block font-serif text-[17px] leading-tight text-white">Saksesories PH</span>
+            <span className="mt-1 block text-[7px] uppercase tracking-[0.22em] text-white/40 max-md:hidden">
+              by Saksesories
+            </span>
           </span>
         </Link>
 

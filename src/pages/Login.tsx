@@ -41,6 +41,13 @@ export default function Login() {
     <div className="grid min-h-screen place-items-center bg-blush-50 px-5 py-10">
       <div className="w-full max-w-[430px]">
         <div className="text-center">
+          <img
+            src="/img/logo-mark.png"
+            alt=""
+            width={220}
+            height={203}
+            className="mx-auto mb-3.5 h-16 w-auto"
+          />
           <p className="font-serif text-[26px] leading-none tracking-[-0.01em] text-ink-900">
             Saksesories PH
           </p>

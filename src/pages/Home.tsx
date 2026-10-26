@@ -171,7 +171,7 @@ export default function Home() {
       <SiteHeader />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="grid min-h-[540px] grid-cols-[46%_54%] items-stretch bg-blush-100 max-lg:min-h-0 max-lg:grid-cols-1">
+      <section className="grid min-h-[540px] grid-cols-[46fr_54fr] items-stretch bg-blush-100 max-lg:min-h-0 max-lg:grid-cols-1">
         <div className="flex flex-col justify-center py-16 pr-14 pl-[max(2rem,calc((100vw-1240px)/2+2rem))] max-lg:px-8 max-md:px-5">
           <p className="eyebrow">
             <span className="h-[5px] w-[5px] rounded-full bg-current" />
@@ -254,7 +254,7 @@ export default function Home() {
 
       {/* ── Why ──────────────────────────────────────────────────────────── */}
       <section id="story" className="py-[82px] max-md:py-14">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40%_60%] items-start gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40fr_60fr] items-start gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
           <div>
             <p className="eyebrow">
               <span className="h-[5px] w-[5px] rounded-full bg-current" />
@@ -283,7 +283,7 @@ export default function Home() {
 
       {/* ── More than a keychain ─────────────────────────────────────────── */}
       <section className="bg-blush-100 py-[82px] max-md:py-14">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40%_60%] items-center gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40fr_60fr] items-center gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
           <div className="flex flex-wrap justify-center gap-x-14 gap-y-7 rounded-[14px] bg-white/70 px-8 pb-6 pt-10">
             <div className="text-center">
               <Chain shape="heart" colour="#6b1f2a" className="mx-auto w-[84px] max-md:w-[66px]" />
@@ -325,7 +325,7 @@ export default function Home() {
 
       {/* ── Steps ────────────────────────────────────────────────────────── */}
       <section className="py-[82px] max-md:py-14">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[32%_68%] items-start gap-10 px-8 max-lg:grid-cols-1">
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[32fr_68fr] items-start gap-10 px-8 max-lg:grid-cols-1">
           <div>
             <p className="eyebrow">
               <span className="h-[5px] w-[5px] rounded-full bg-current" />
@@ -513,7 +513,7 @@ export default function Home() {
 
       {/* ── Care ─────────────────────────────────────────────────────────── */}
       <section className="py-[62px] max-md:py-14">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40%_60%] items-start gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40fr_60fr] items-start gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
           <div>
             <p className="eyebrow">
               <span className="h-[5px] w-[5px] rounded-full bg-current" />
@@ -540,7 +540,7 @@ export default function Home() {
 
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
       <section className="py-[82px] max-md:py-14">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40%_60%] items-start gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40fr_60fr] items-start gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
           <div>
             <p className="eyebrow">
               <span className="h-[5px] w-[5px] rounded-full bg-current" />

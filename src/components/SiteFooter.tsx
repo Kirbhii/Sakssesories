@@ -19,7 +19,14 @@ export default function SiteFooter() {
       <div className="mx-auto w-full max-w-[1240px] px-8">
         <div className="grid grid-cols-[1.6fr_repeat(3,1fr)] gap-10 border-b border-blush-300/60 pb-10 max-lg:grid-cols-2 max-md:grid-cols-1">
           <div>
-            <span className="font-serif text-[22px] text-ink-900">Saksesories PH</span>
+            <img
+              src="/img/logo-mark.png"
+              alt=""
+              width={220}
+              height={203}
+              className="h-14 w-auto"
+            />
+            <span className="mt-3 block font-serif text-[22px] text-ink-900">Saksesories PH</span>
             <p className="mt-2.5 max-w-[30ch] text-[11px] leading-[1.7] text-ink-500">
               A little style, a clearer day — handmade leather keychains with a microfiber pad,
               made in the Philippines.
