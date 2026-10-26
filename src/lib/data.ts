@@ -38,8 +38,8 @@ export const PRODUCT = {
 } as const;
 
 export const SHAPES: Shape[] = [
-  { id: 'heart', name: 'Heart', sku: 'HT', price: 14900 },
-  { id: 'teardrop', name: 'Teardrop', sku: 'DR', price: 16500 },
+  { id: 'heart', name: 'Heart', sku: 'HT', price: 5900 },
+  { id: 'teardrop', name: 'Teardrop', sku: 'DR', price: 5900 },
 ];
 
 export const COLOURS: Colour[] = [

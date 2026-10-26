@@ -129,6 +129,25 @@
   }
 }
 
+/* Swapping the product photo for another colour should read as a turn, not a
+   glitch — a short fade with the faintest push, nothing that draws attention
+   to itself. The photo is keyed on its colour in Home.tsx, so remounting is
+   what replays this. */
+@keyframes skph-swap {
+  from {
+    opacity: 0;
+    transform: scale(1.012);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.swap-in {
+  animation: skph-swap 0.42s cubic-bezier(0.22, 0.7, 0.3, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .reveal.is-in {
@@ -137,7 +156,8 @@
     transition: none;
   }
 
-  .hero-in {
+  .hero-in,
+  .swap-in {
     animation: none;
   }
 }

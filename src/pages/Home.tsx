@@ -80,17 +80,15 @@ const FEATURES = [
   },
 ];
 
-// Photos of each shape for the collection cards. Both show the microfiber
-// side — the part that does the cleaning — so the pair reads as one product.
-const CARD_META: Record<ShapeId, { img: string; alt: string; line: string }> = {
+// Copy for the collection cards. The photo is not here any more — it is chosen
+// by the colour the visitor taps, from /img/product-<shape>-<colour>.webp.
+const CARD_META: Record<ShapeId, { alt: string; line: string }> = {
   heart: {
-    img: '/img/product-heart.webp',
-    alt: 'The red heart ClearChain, microfiber side facing out',
+    alt: 'heart ClearChain, microfiber side facing out',
     line: 'A playful detail with a little extra love.',
   },
   teardrop: {
-    img: '/img/product-teardrop.webp',
-    alt: 'The black teardrop ClearChain, microfiber side facing out',
+    alt: 'teardrop ClearChain, microfiber side facing out',
     line: 'A simple silhouette for your everyday carry.',
   },
 };
@@ -186,6 +184,14 @@ const SLIDES = [
 
 export default function Home() {
   const [open, setOpen] = useState(0);
+
+  // Which colour each collection card is showing. It starts on the colour that
+  // card is actually photographed in, so the page opens on the real photo and
+  // nothing moves until someone taps a swatch.
+  const [picked, setPicked] = useState<Record<ShapeId, string>>({
+    heart: 'maroon',
+    teardrop: 'black',
+  });
 
   // ── Hero slider ─────────────────────────────────────────────────────────
   // Four lifestyle photos cross-fading behind the caption card. It advances on
@@ -548,17 +554,22 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-[26px] max-md:grid-cols-1">
             {[heart, drop].map((v) => {
               const meta = CARD_META[v.shape];
+              const colour = picked[v.shape];
+              const swatch = COLOURS.find((c) => c.id === colour)!;
               return (
                 <article
                   key={v.key}
                   className="group overflow-hidden rounded bg-white transition-shadow hover:shadow-[0_18px_40px_-24px_rgba(74,17,26,0.4)]"
                 >
+                  {/* Keyed on the colour so the photo is remounted, not just
+                      re-sourced: that is what replays the fade underneath. */}
                   <img
-                    src={meta.img}
-                    alt={meta.alt}
+                    key={colour}
+                    src={`/img/product-${v.shape}-${colour}.webp`}
+                    alt={`The ${swatch.name.toLowerCase()} ${meta.alt}`}
                     width={1600}
                     height={1000}
-                    className="aspect-[16/10] w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.035]"
+                    className="swap-in aspect-[16/10] w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.035]"
                   />
 
                   <div className="px-5 pb-5 pt-4">
@@ -575,23 +586,34 @@ export default function Home() {
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex gap-1.5">
+                        {/* Real buttons, not dots: tapping one is the whole
+                            point, so it needs a target big enough to hit and a
+                            name a screen reader can read out. */}
+                        <div className="flex items-center">
                           {COLOURS.map((c) => (
-                            <span
+                            <button
                               key={c.id}
+                              type="button"
+                              onClick={() => setPicked((p) => ({ ...p, [v.shape]: c.id }))}
+                              aria-label={`Show the ${v.shapeName} in ${c.name}`}
+                              aria-pressed={c.id === colour}
                               title={c.name}
-                              className={[
-                                'h-[11px] w-[11px] rounded-full border border-black/10',
-                                c.id === v.key.split('-')[1]
-                                  ? 'outline outline-1 outline-offset-2 outline-wine-800'
-                                  : '',
-                              ].join(' ')}
-                              style={{ background: c.hex }}
-                            />
+                              className="grid h-[22px] w-[22px] place-items-center rounded-full transition-transform hover:scale-110"
+                            >
+                              <span
+                                className={[
+                                  'h-[11px] w-[11px] rounded-full border border-black/10',
+                                  c.id === colour
+                                    ? 'outline outline-1 outline-offset-2 outline-wine-800'
+                                    : '',
+                                ].join(' ')}
+                                style={{ background: c.hex }}
+                              />
+                            </button>
                           ))}
                         </div>
                         <span className="whitespace-nowrap text-[9px] uppercase tracking-[0.14em] text-ink-300 max-md:text-[8px] max-md:tracking-[0.07em]">
-                          6 colours · Leather · Microfiber
+                          {swatch.name} · Leather · Microfiber
                         </span>
                       </div>
 

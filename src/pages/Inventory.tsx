@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { peso2 } from '@/lib/data';
+import { peso, peso2, SHAPES } from '@/lib/data';
 import { ROLE_LABEL, useAuth } from '@/lib/auth';
 import type { MemberRole } from '@/lib/quota';
 import {
@@ -10,6 +10,11 @@ import {
   materialStatus,
   type Material,
 } from '@/lib/materials';
+
+// Both shapes sell for the same price, and it is the catalogue's number — not
+// a second copy of it typed into this screen. If the price moves in data.ts,
+// the cost card moves with it.
+const SELL_AT = SHAPES[0].price;
 
 // ─── Production rail ────────────────────────────────────────────────────────
 // Inventory is the production module, so it keeps a vertical rail instead of the
@@ -405,8 +410,11 @@ export default function Inventory() {
                   </div>
 
                   <div className="mt-2 flex justify-between rounded bg-ok-100 px-2.5 py-[7px] text-[9.5px] text-ok-600">
-                    <span>Sells at ₱149</span>
-                    <span className="num">₱99.50 margin · 67%</span>
+                    <span>Sells at {peso(SELL_AT)}</span>
+                    <span className="num">
+                      {peso2(SELL_AT - COST_TOTAL)} margin ·{' '}
+                      {Math.round(((SELL_AT - COST_TOTAL) / SELL_AT) * 100)}%
+                    </span>
                   </div>
                 </div>
               </section>
