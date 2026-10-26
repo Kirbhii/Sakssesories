@@ -304,7 +304,7 @@ export default function Home() {
             <span className="h-[5px] w-[5px] rounded-full bg-current" />
             Handmade in the Philippines
           </p>
-          <h1 className="max-w-[14ch] text-[clamp(40px,4.4vw,58px)] leading-[1.06] text-wine-800">
+          <h1 className="max-w-[14ch] text-[clamp(40px,4.4vw,58px)] leading-[1.06] text-wine-700">
             A little style.
             <br />A clearer day.
           </h1>
@@ -330,7 +330,7 @@ export default function Home() {
           <p className="text-[10.5px] font-semibold uppercase tracking-[0.26em] text-crimson-600">
             {SLIDES[hero].label}
           </p>
-          <p className="mt-2.5 max-w-[26ch] font-serif text-[24px] leading-[1.2] text-wine-800 max-md:text-[21px]">
+          <p className="mt-2.5 max-w-[26ch] font-serif text-[24px] leading-[1.2] text-wine-700 max-md:text-[21px]">
             {SLIDES[hero].caption}
           </p>
 
@@ -412,7 +412,7 @@ export default function Home() {
               Every piece is cut, stitched, and finished by hand in small batches. No two are
               perfectly identical, and that is exactly the point.
             </p>
-            <p className="pt-1 font-serif text-[17px] italic text-wine-800">
+            <p className="pt-1 font-serif text-[17px] italic text-wine-700">
               Sakses anytime, Style anytime.
             </p>
           </div>
@@ -526,7 +526,7 @@ export default function Home() {
                       <p className="font-serif text-[15px] text-ink-900">
                         ClearChain <em className="italic">/ The {v.shapeName}</em>
                       </p>
-                      <span className="num whitespace-nowrap text-[13.5px] font-medium">
+                      <span className="num whitespace-nowrap text-[13.5px] font-medium text-wine-800">
                         {peso(v.price)}
                       </span>
                     </div>
@@ -680,33 +680,6 @@ export default function Home() {
                 </a>
               </article>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Care ─────────────────────────────────────────────────────────── */}
-      <section className="py-[62px] max-md:py-14">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40fr_60fr] items-start gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
-          <div>
-            <p className="eyebrow">
-              <span className="h-[5px] w-[5px] rounded-full bg-current" />
-              Care
-            </p>
-            <h2 className="text-[clamp(28px,2.7vw,37px)] leading-[1.14]">
-              Keep your little
-              <br />
-              companion lovely.
-            </h2>
-          </div>
-          <div className="space-y-3.5">
-            <p className="text-[14.5px] leading-[1.75] text-ink-500">
-              Wipe the leather with a dry cloth and keep it away from long soaks. The microfiber pad
-              can be lifted out, rinsed in cool water, and left to air dry — it will be ready again
-              by morning.
-            </p>
-            <p className="text-[14.5px] leading-[1.75] text-ink-500">
-              Leather darkens and softens with use. That is not wear, that is character.
-            </p>
           </div>
         </div>
       </section>

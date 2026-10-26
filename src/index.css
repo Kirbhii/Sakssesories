@@ -59,7 +59,9 @@
   h1,
   h2,
   h3 {
-    @apply font-serif font-normal tracking-[-0.012em] text-ink-900;
+    /* Wine, not near-black: the maroon is the trademark, so it carries the
+       headings everywhere. Anything on a dark ground sets its own colour. */
+    @apply font-serif font-normal tracking-[-0.012em] text-wine-700;
     margin: 0;
   }
 
