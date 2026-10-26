@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
-import Chain from '@/components/Chain';
 import { COLOURS, VARIANTS, peso } from '@/lib/data';
+import type { ShapeId } from '@/lib/data';
 
 // ─── Small inline icons ─────────────────────────────────────────────────────
 
@@ -67,21 +67,36 @@ const GIFTS = [
 
 const FEATURES = [
   {
-    icon: 'M3.2 3.2h13.6v13.6H3.2V3.2Z',
+    icon: 'M8 2.6 13.4 5.5 8 8.4 2.6 5.5 8 2.6ZM2.6 8.9 8 11.8 13.4 8.9M2.6 11.6 8 14.5 13.4 11.6',
     title: 'Removable microfiber pad',
-    body: 'Swap it, wash it, keep it working — the cleaning pad lifts smudges without scratching your lenses.',
+    body: 'Swap it, wash it, keep it working.',
   },
   {
-    icon: 'M3 14.5 14.5 3',
+    icon: 'M2.6 13.4 9.6 6.4M9.1 5.9a1.9 1.9 0 1 0 2.7 2.7 1.9 1.9 0 0 0-2.7-2.7Z',
     title: 'Hand-stitched leather',
-    body: 'Real leather, cut and stitched by hand in small batches. It softens and darkens beautifully with use.',
+    body: 'Cut and stitched by hand in small batches.',
   },
   {
-    icon: 'M5 17V3.5M5 4.2c2.6-1.5 4.6 1.2 7 .2 1.2-.5 2-.4 3 0v6.2c-1-.4-1.8-.5-3 0-2.4 1-4.4-1.7-7-.2',
+    icon: 'M8 14.2s4.2-4.1 4.2-6.9a4.2 4.2 0 1 0-8.4 0c0 2.8 4.2 6.9 4.2 6.9ZM8 5.5a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2Z',
     title: 'Made in the Philippines',
-    body: 'Designed, made, and finished locally — from a small studio to your pocket.',
+    body: 'Designed, made, and finished locally.',
   },
 ];
+
+// Photos of each shape for the collection cards. Both show the microfiber
+// side — the part that does the cleaning — so the pair reads as one product.
+const CARD_META: Record<ShapeId, { img: string; alt: string; line: string }> = {
+  heart: {
+    img: '/img/product-heart.webp',
+    alt: 'The red heart ClearChain, microfiber side facing out',
+    line: 'A playful detail with a little extra love.',
+  },
+  teardrop: {
+    img: '/img/product-teardrop.webp',
+    alt: 'The black teardrop ClearChain, microfiber side facing out',
+    line: 'A simple silhouette for your everyday carry.',
+  },
+};
 
 const STEPS = [
   {
@@ -236,7 +251,7 @@ export default function Home() {
   }
 
   const heart = VARIANTS.find((v) => v.key === 'heart-maroon')!;
-  const drop = VARIANTS.find((v) => v.key === 'teardrop-tan')!;
+  const drop = VARIANTS.find((v) => v.key === 'teardrop-black')!;
 
   return (
     <div className="bg-white">
@@ -406,32 +421,32 @@ export default function Home() {
 
       {/* ── More than a keychain ─────────────────────────────────────────── */}
       <section className="bg-blush-100 py-[82px] max-md:py-14">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[40fr_60fr] items-center gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-7">
-          <div className="flex flex-wrap justify-center gap-x-14 gap-y-7 rounded-[14px] bg-white/70 px-8 pb-6 pt-10">
-            <div className="text-center">
-              <Chain shape="heart" colour="#6b1f2a" className="mx-auto w-[84px] max-md:w-[66px]" />
-              <p className="mt-3.5 font-serif text-[13px] text-ink-900">The heart</p>
-            </div>
-            <div className="text-center">
-              <Chain shape="teardrop" colour="#b9855a" className="mx-auto w-[84px] max-md:w-[66px]" />
-              <p className="mt-3.5 font-serif text-[13px] text-ink-900">The teardrop</p>
-            </div>
-            <p className="basis-full border-t border-blush-300 pt-[18px] text-center text-[9px] uppercase tracking-[0.18em] text-ink-300">
-              Two shapes · six colours · one little habit
-            </p>
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-[46fr_54fr] items-center gap-14 px-8 max-lg:grid-cols-1 max-lg:gap-9">
+          <div className="overflow-hidden rounded-[14px] bg-blush-200">
+            <img
+              src="/img/meet-clearchain.webp"
+              alt="A brown leather bag with keys and the black heart ClearChain clipped to the zip"
+              width={1100}
+              height={1375}
+              className="aspect-[4/5] w-full object-cover"
+            />
           </div>
 
           <div>
             <p className="eyebrow">
               <span className="h-[5px] w-[5px] rounded-full bg-current" />
-              The ClearChain
+              Meet ClearChain
             </p>
             <h2 className="text-[clamp(28px,2.7vw,37px)] leading-[1.14]">
               More than a keychain.
               <br />A handy little habit.
             </h2>
+            <p className="mt-5 max-w-[46ch] text-[14.5px] leading-[1.75] text-ink-500">
+              A compact accessory that keeps a microfiber cleaning surface at hand — for your
+              glasses, your phone, and every other screen you touch all day.
+            </p>
 
-            <div className="mt-7 grid gap-[26px]">
+            <div className="mt-7 grid gap-[22px]">
               {FEATURES.map((f) => (
                 <div key={f.title} className="grid grid-cols-[26px_1fr] gap-3.5">
                   <Icon d={f.icon} className="mt-1 h-4 w-4 text-crimson-600" />
@@ -479,52 +494,87 @@ export default function Home() {
             <div>
               <p className="eyebrow">
                 <span className="h-[5px] w-[5px] rounded-full bg-current" />
-                Shop the collection
+                Choose your little detail
               </p>
               <h2 className="text-[clamp(28px,2.7vw,37px)] leading-[1.14]">
                 Two shapes. Your kind of style.
               </h2>
             </div>
             <p className="max-w-[32ch] text-right text-[10.5px] uppercase leading-[1.6] tracking-[0.12em] text-ink-300 max-md:text-left">
-              Every piece is hand-cut, stitched, and finished in small batches.
+              Concept collection · Prices in Philippine pesos
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-[26px] max-md:grid-cols-1">
-            {[heart, drop].map((v) => (
-              <article
-                key={v.key}
-                className="overflow-hidden rounded bg-white transition-shadow hover:shadow-[0_18px_40px_-24px_rgba(74,17,26,0.4)]"
-              >
-                <div className="grid aspect-[4/3] place-items-center bg-blush-200 p-[30px]">
-                  <Chain shape={v.shape} colour={v.hex} className="w-[152px]" />
-                </div>
-                <div className="flex items-start justify-between gap-4 bg-white px-5 pb-5 pt-4">
-                  <div>
-                    <p className="font-serif text-[14px] text-ink-900">
-                      ClearChain <em className="italic">/ The {v.shapeName}</em>
-                    </p>
-                    <p className="mt-1.5 text-[10px] tracking-[0.03em] text-ink-300">
-                      Leather · microfiber pad
-                    </p>
-                    <div className="mt-3 flex gap-1.5">
-                      {COLOURS.map((c) => (
-                        <span
-                          key={c.id}
-                          title={c.name}
-                          className={[
-                            'h-[11px] w-[11px] rounded-full border border-black/10',
-                            c.id === v.key.split('-')[1] ? 'outline outline-1 outline-offset-2 outline-wine-800' : '',
-                          ].join(' ')}
-                          style={{ background: c.hex }}
-                        />
-                      ))}
+            {[heart, drop].map((v) => {
+              const meta = CARD_META[v.shape];
+              return (
+                <article
+                  key={v.key}
+                  className="overflow-hidden rounded bg-white transition-shadow hover:shadow-[0_18px_40px_-24px_rgba(74,17,26,0.4)]"
+                >
+                  <img
+                    src={meta.img}
+                    alt={meta.alt}
+                    width={1600}
+                    height={1000}
+                    className="aspect-[16/10] w-full object-cover"
+                  />
+
+                  <div className="px-5 pb-5 pt-4">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <p className="font-serif text-[15px] text-ink-900">
+                        ClearChain <em className="italic">/ The {v.shapeName}</em>
+                      </p>
+                      <span className="num whitespace-nowrap text-[13.5px] font-medium">
+                        {peso(v.price)}
+                      </span>
+                    </div>
+
+                    <p className="mt-1.5 text-[11.5px] leading-[1.6] text-ink-500">{meta.line}</p>
+
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex gap-1.5">
+                          {COLOURS.map((c) => (
+                            <span
+                              key={c.id}
+                              title={c.name}
+                              className={[
+                                'h-[11px] w-[11px] rounded-full border border-black/10',
+                                c.id === v.key.split('-')[1]
+                                  ? 'outline outline-1 outline-offset-2 outline-wine-800'
+                                  : '',
+                              ].join(' ')}
+                              style={{ background: c.hex }}
+                            />
+                          ))}
+                        </div>
+                        <span className="whitespace-nowrap text-[9px] uppercase tracking-[0.14em] text-ink-300 max-md:text-[8px] max-md:tracking-[0.07em]">
+                          6 colours · Leather · Microfiber
+                        </span>
+                      </div>
+
+                      <Link
+                        to="/pos"
+                        className="ml-auto inline-flex items-center gap-1.5 rounded-pill border border-wine-800/25 px-3.5 py-2 text-[10.5px] font-medium text-wine-800 transition-colors hover:border-wine-800 hover:bg-wine-800 hover:text-white"
+                      >
+                        Make it yours
+                        <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none">
+                          <path
+                            d="M3.4 8.6 8.6 3.4M4.9 3.4h3.7v3.7"
+                            stroke="currentColor"
+                            strokeWidth="1.3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </Link>
                     </div>
                   </div>
-                  <span className="num whitespace-nowrap text-[13px] font-medium">{peso(v.price)}</span>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
