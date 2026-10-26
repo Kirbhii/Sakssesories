@@ -140,7 +140,7 @@ const SLIDES = [
     wide: 1920,
     alt: 'A man carrying a brown shoulder bag with the tan teardrop keychain clipped to the strap',
     label: 'The teardrop chain',
-    caption: 'Clean, carry, keep close.',
+    caption: 'Clean, carry, close.',
     focus: '50% 10%',
   },
   {
@@ -149,7 +149,7 @@ const SLIDES = [
     wide: 1920,
     alt: 'A woman on an escalator with a black shoulder bag and the red heart keychain',
     label: 'The heart chain',
-    caption: 'On the bag she carries every day.',
+    caption: 'Every day, on her bag.',
     focus: '46% 10%',
   },
   {
@@ -158,7 +158,7 @@ const SLIDES = [
     wide: 1632,
     alt: 'A woman in a pink shirt carrying a white shoulder bag with the red heart keychain',
     label: 'The heart chain',
-    caption: 'A little colour on the way out.',
+    caption: 'Colour on the way out.',
     focus: '48% 10%',
   },
   {
@@ -334,7 +334,7 @@ export default function Home() {
           <p className="text-[10.5px] font-semibold uppercase tracking-[0.26em] text-crimson-600">
             {SLIDES[hero].label}
           </p>
-          <p className="mt-2.5 max-w-[24ch] font-serif text-[26px] leading-[1.2] text-wine-800 max-md:text-[22px]">
+          <p className="mt-2.5 max-w-[26ch] font-serif text-[24px] leading-[1.2] text-wine-800 max-md:text-[21px]">
             {SLIDES[hero].caption}
           </p>
 
