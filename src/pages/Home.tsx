@@ -135,7 +135,7 @@ const DAYS = [
 // it drew anything, and a desktop would be stuck with a soft, upscaled image.
 const SLIDES = [
   {
-    src: '/img/hero-1.webp',
+    src: '/img/hero-1-wide.webp',
     small: '/img/hero-1-960.webp',
     wide: 1920,
     alt: 'A man carrying a brown shoulder bag with the tan teardrop keychain clipped to the strap',
@@ -144,7 +144,7 @@ const SLIDES = [
     focus: '50% 10%',
   },
   {
-    src: '/img/hero-2.webp',
+    src: '/img/hero-2-wide.webp',
     small: '/img/hero-2-960.webp',
     wide: 1920,
     alt: 'A woman on an escalator with a black shoulder bag and the red heart keychain',
@@ -153,16 +153,16 @@ const SLIDES = [
     focus: '46% 10%',
   },
   {
-    src: '/img/hero-3.webp',
+    src: '/img/hero-3-wide.webp',
     small: '/img/hero-3-960.webp',
-    wide: 1651,
+    wide: 1632,
     alt: 'A woman in a pink shirt carrying a white shoulder bag with the red heart keychain',
     label: 'The heart chain',
     caption: 'A little colour on the way out.',
     focus: '48% 10%',
   },
   {
-    src: '/img/hero-4.webp',
+    src: '/img/hero-4-wide.webp',
     small: '/img/hero-4-960.webp',
     wide: 1920,
     alt: 'A woman in a brown top with the black heart keychain clipped at her waist',
@@ -181,6 +181,15 @@ export default function Home() {
   // entirely for anyone who has asked their system to reduce motion.
   const [hero, setHero] = useState(0);
   const [hold, setHold] = useState(false);
+
+  // Only the first photo holds up the first paint. The other three are added a
+  // beat later — they are opaque and stacked anyway, so nothing on screen
+  // changes when they arrive, and the slider never runs out of runway.
+  const [rest, setRest] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setRest(true), 700);
+    return () => window.clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     if (hold) return;
@@ -241,7 +250,7 @@ export default function Home() {
         onFocus={() => setHold(true)}
         onBlur={() => setHold(false)}
       >
-        {SLIDES.map((s, i) => (
+        {(rest || hero > 0 ? SLIDES : SLIDES.slice(0, 1)).map((s, i) => (
           <img
             key={s.src}
             src={s.src}
@@ -264,7 +273,15 @@ export default function Home() {
             runs full width, so the veil turns and works from the bottom up. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(249,239,241,0.93)_0%,rgba(249,239,241,0.87)_28%,rgba(249,239,241,0.62)_44%,rgba(249,239,241,0.22)_62%,rgba(249,239,241,0.04)_78%,rgba(249,239,241,0)_92%)] max-lg:bg-[linear-gradient(to_bottom,rgba(249,239,241,0.86)_0%,rgba(249,239,241,0.78)_38%,rgba(249,239,241,0.58)_66%,rgba(249,239,241,0.34)_88%,rgba(249,239,241,0.26)_100%)]"
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(249,239,241,0.95)_0%,rgba(249,239,241,0.90)_26%,rgba(249,239,241,0.62)_42%,rgba(249,239,241,0.22)_60%,rgba(249,239,241,0.04)_78%,rgba(249,239,241,0)_92%)] max-lg:bg-[linear-gradient(to_bottom,rgba(249,239,241,0.88)_0%,rgba(249,239,241,0.82)_36%,rgba(249,239,241,0.66)_64%,rgba(249,239,241,0.46)_100%)]"
+        />
+
+        {/* On a phone the caption and pager land on the busiest part of the
+            photo, so they get a soft wash that fades into the image. It has no
+            edge, which is the whole point — a card was what we just removed. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[168px] bg-[linear-gradient(to_top,rgba(249,239,241,0.95)_0%,rgba(249,239,241,0.80)_40%,rgba(249,239,241,0.34)_74%,rgba(249,239,241,0)_100%)] lg:hidden"
         />
 
         <div className="relative z-10 flex flex-1 flex-col justify-center py-16 pr-14 pl-[max(2rem,calc((100vw-1240px)/2+2rem))] max-lg:px-8 max-md:px-5">
@@ -272,11 +289,11 @@ export default function Home() {
             <span className="h-[5px] w-[5px] rounded-full bg-current" />
             Handmade in the Philippines
           </p>
-          <h1 className="max-w-[12ch] text-[clamp(38px,4.1vw,54px)] leading-[1.08]">
+          <h1 className="max-w-[14ch] text-[clamp(40px,4.4vw,58px)] leading-[1.06] text-wine-800">
             A little style.
             <br />A clearer day.
           </h1>
-          <p className="mt-5 max-w-[40ch] text-[13.5px] leading-[1.75] text-ink-700">
+          <p className="mt-6 max-w-[42ch] text-[14.5px] leading-[1.75] text-ink-900/85">
             Meet ClearChain — a leather keychain with a microfiber pad, made to keep your glasses,
             screens, and everyday lenses clean, clear, and close at hand.
           </p>
@@ -310,19 +327,18 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Caption card: part of the flow on a phone, pinned bottom-right on a
-            desktop where there is room for it to float over the photo. */}
-        <div className="relative z-10 mx-7 mb-7 flex items-center justify-between gap-4 rounded bg-white/95 py-4 pr-4 pl-[22px] backdrop-blur max-md:mx-3.5 max-md:mb-3.5 lg:absolute lg:bottom-7 lg:left-[max(2rem,calc((100vw-1240px)/2+2rem))] lg:mx-0 lg:mb-0 lg:w-[420px]">
-          <div className="min-w-0">
-            <p className="text-[8.5px] uppercase tracking-[0.2em] text-crimson-600">
-              {SLIDES[hero].label}
-            </p>
-            <p className="mt-1 font-serif text-[15px] leading-[1.3] text-ink-900">
-              {SLIDES[hero].caption}
-            </p>
-          </div>
+        {/* Slide label, caption and pager — straight on the photo, no card.
+            The active slide is a maroon bar rather than a dot, so the eye
+            reads "one of four" without a counter doing the talking. */}
+        <div className="relative z-10 mx-7 mb-7 max-md:mx-5 max-md:mb-6 lg:absolute lg:bottom-8 lg:left-[max(2rem,calc((100vw-1240px)/2+2rem))] lg:mx-0 lg:mb-0 lg:w-[440px]">
+          <p className="text-[10.5px] font-semibold uppercase tracking-[0.26em] text-crimson-600">
+            {SLIDES[hero].label}
+          </p>
+          <p className="mt-2.5 max-w-[24ch] font-serif text-[26px] leading-[1.2] text-wine-800 max-md:text-[22px]">
+            {SLIDES[hero].caption}
+          </p>
 
-          <div className="flex flex-none items-center gap-3">
+          <div className="mt-5 flex items-center gap-4">
             <div className="flex items-center">
               {SLIDES.map((s, i) => (
                 <button
@@ -330,24 +346,41 @@ export default function Home() {
                   onClick={() => setHero(i)}
                   aria-label={`Photo ${i + 1} of ${SLIDES.length}`}
                   aria-current={i === hero}
-                  className="grid place-items-center p-[7px]"
+                  className="grid h-7 place-items-center px-[4px]"
                 >
                   <span
                     className={[
-                      'block h-[3px] rounded-full transition-all',
-                      i === hero ? 'w-4 bg-crimson-600' : 'w-[3px] bg-blush-400',
+                      'block rounded-full transition-all duration-300',
+                      i === hero
+                        ? 'h-[4px] w-10 bg-crimson-600'
+                        : 'h-[5px] w-[5px] bg-wine-800/40 hover:bg-wine-800/70',
                     ].join(' ')}
                   />
                 </button>
               ))}
             </div>
+
+            <span aria-hidden className="h-3.5 w-px bg-wine-800/20" />
+
             <button
               onClick={nextHero}
               aria-label="Next photo"
-              className="grid h-[34px] w-[34px] flex-none place-items-center rounded-full border border-blush-300 bg-white text-wine-800 transition-colors hover:bg-wine-800 hover:text-white"
+              className="grid h-9 w-9 flex-none place-items-center rounded-full border border-wine-800/25 text-wine-800 transition-colors hover:border-wine-800 hover:bg-wine-800 hover:text-white"
             >
-              <ArrowRight />
+              <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">
+                <path
+                  d="M4.2 2.4 7.8 6l-3.6 3.6"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </button>
+
+            <span className="num text-[10.5px] tracking-[0.16em] text-wine-800/55">
+              {String(hero + 1).padStart(2, '0')} / {String(SLIDES.length).padStart(2, '0')}
+            </span>
           </div>
         </div>
       </section>
