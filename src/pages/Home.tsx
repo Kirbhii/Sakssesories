@@ -127,35 +127,37 @@ const DAYS = [
 
 // ─── Hero slider ────────────────────────────────────────────────────────────
 // Lifestyle shots of the keychain on real people, not on a white table. The
-// caption under each one is the label the card shows while that photo is up.
+// photo fills the whole hero, words included, so `focus` matters: the hero is
+// much wider than it is tall, and object-cover takes a horizontal band out of
+// each photo. These values keep the person's face and the bag in that band.
 const SLIDES = [
   {
     src: '/img/hero-1.webp',
     alt: 'A man carrying a brown shoulder bag with the tan teardrop keychain clipped to the strap',
     label: 'The teardrop chain',
     caption: 'Clean, carry, keep close.',
-    focus: '52% 42%',
+    focus: '50% 10%',
   },
   {
     src: '/img/hero-2.webp',
     alt: 'A woman on an escalator with a black shoulder bag and the red heart keychain',
     label: 'The heart chain',
-    caption: 'Clipped to the bag she carries every day.',
-    focus: '55% 38%',
+    caption: 'On the bag she carries every day.',
+    focus: '46% 10%',
   },
   {
     src: '/img/hero-3.webp',
     alt: 'A woman in a pink shirt carrying a white shoulder bag with the red heart keychain',
     label: 'The heart chain',
     caption: 'A little colour on the way out.',
-    focus: '52% 36%',
+    focus: '48% 10%',
   },
   {
     src: '/img/hero-4.webp',
     alt: 'A woman in a brown top with the black heart keychain clipped at her waist',
     label: 'The black heart',
     caption: 'Not just for keys.',
-    focus: '55% 42%',
+    focus: '48% 10%',
   },
 ];
 
@@ -221,8 +223,38 @@ export default function Home() {
       <SiteHeader />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="grid min-h-[540px] grid-cols-[46fr_54fr] items-stretch bg-blush-100 max-lg:min-h-0 max-lg:grid-cols-1">
-        <div className="flex flex-col justify-center py-16 pr-14 pl-[max(2rem,calc((100vw-1240px)/2+2rem))] max-lg:px-8 max-md:px-5">
+      <section
+        className="relative flex min-h-[760px] flex-col overflow-hidden bg-blush-100 max-lg:min-h-0"
+        onMouseEnter={() => setHold(true)}
+        onMouseLeave={() => setHold(false)}
+        onFocus={() => setHold(true)}
+        onBlur={() => setHold(false)}
+      >
+        {SLIDES.map((s, i) => (
+          <img
+            key={s.src}
+            src={s.src}
+            alt={i === hero ? s.alt : ''}
+            aria-hidden={i !== hero}
+            draggable={false}
+            style={{ objectPosition: s.focus }}
+            className={[
+              'absolute inset-0 h-full w-full object-cover transition-opacity duration-[1100ms] ease-out',
+              i === hero ? 'opacity-100' : 'opacity-0',
+            ].join(' ')}
+          />
+        ))}
+
+        {/* The words sit straight on the photo, so the photo has to step back
+            behind them — nearly opaque on the left where the copy is, clearing
+            to nothing on the right where the person is. On a phone the copy
+            runs full width, so the veil turns and works from the bottom up. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(249,239,241,0.98)_0%,rgba(249,239,241,0.96)_30%,rgba(249,239,241,0.90)_46%,rgba(249,239,241,0.55)_64%,rgba(249,239,241,0.16)_80%,rgba(249,239,241,0)_94%)] max-lg:bg-[linear-gradient(to_bottom,rgba(249,239,241,0.89)_0%,rgba(249,239,241,0.86)_42%,rgba(249,239,241,0.80)_72%,rgba(249,239,241,0.68)_100%)]"
+        />
+
+        <div className="relative z-10 flex flex-1 flex-col justify-center py-16 pr-14 pl-[max(2rem,calc((100vw-1240px)/2+2rem))] max-lg:px-8 max-md:px-5">
           <p className="eyebrow">
             <span className="h-[5px] w-[5px] rounded-full bg-current" />
             Handmade in the Philippines
@@ -265,65 +297,44 @@ export default function Home() {
           </div>
         </div>
 
-        <div
-          className="relative min-h-[380px] overflow-hidden bg-blush-200 max-md:min-h-[320px]"
-          onMouseEnter={() => setHold(true)}
-          onMouseLeave={() => setHold(false)}
-          onFocus={() => setHold(true)}
-          onBlur={() => setHold(false)}
-        >
-          {SLIDES.map((s, i) => (
-            <img
-              key={s.src}
-              src={s.src}
-              alt={i === hero ? s.alt : ''}
-              aria-hidden={i !== hero}
-              draggable={false}
-              style={{ objectPosition: s.focus }}
-              className={[
-                'absolute inset-0 h-full w-full object-cover transition-opacity duration-[1100ms] ease-out',
-                i === hero ? 'opacity-100' : 'opacity-0',
-              ].join(' ')}
-            />
-          ))}
+        {/* Caption card: part of the flow on a phone, pinned bottom-right on a
+            desktop where there is room for it to float over the photo. */}
+        <div className="relative z-10 mx-7 mb-7 flex items-center justify-between gap-4 rounded bg-white/95 py-4 pr-4 pl-[22px] backdrop-blur max-md:mx-3.5 max-md:mb-3.5 lg:absolute lg:bottom-7 lg:left-[max(2rem,calc((100vw-1240px)/2+2rem))] lg:mx-0 lg:mb-0 lg:w-[420px]">
+          <div className="min-w-0">
+            <p className="text-[8.5px] uppercase tracking-[0.2em] text-crimson-600">
+              {SLIDES[hero].label}
+            </p>
+            <p className="mt-1 font-serif text-[15px] leading-[1.3] text-ink-900">
+              {SLIDES[hero].caption}
+            </p>
+          </div>
 
-          <div className="absolute inset-x-7 bottom-7 flex items-center justify-between gap-4 rounded bg-white/95 py-4 pl-[22px] pr-4 backdrop-blur max-md:inset-x-3.5 max-md:bottom-3.5">
-            <div className="min-w-0">
-              <p className="text-[8.5px] uppercase tracking-[0.2em] text-crimson-600">
-                {SLIDES[hero].label}
-              </p>
-              <p className="mt-1 font-serif text-[15px] leading-[1.3] text-ink-900">
-                {SLIDES[hero].caption}
-              </p>
+          <div className="flex flex-none items-center gap-3">
+            <div className="flex items-center">
+              {SLIDES.map((s, i) => (
+                <button
+                  key={s.src}
+                  onClick={() => setHero(i)}
+                  aria-label={`Photo ${i + 1} of ${SLIDES.length}`}
+                  aria-current={i === hero}
+                  className="grid place-items-center p-[7px]"
+                >
+                  <span
+                    className={[
+                      'block h-[3px] rounded-full transition-all',
+                      i === hero ? 'w-4 bg-crimson-600' : 'w-[3px] bg-blush-400',
+                    ].join(' ')}
+                  />
+                </button>
+              ))}
             </div>
-
-            <div className="flex flex-none items-center gap-3">
-              <div className="flex items-center">
-                {SLIDES.map((s, i) => (
-                  <button
-                    key={s.src}
-                    onClick={() => setHero(i)}
-                    aria-label={`Photo ${i + 1} of ${SLIDES.length}`}
-                    aria-current={i === hero}
-                    className="grid place-items-center p-[7px]"
-                  >
-                    <span
-                      className={[
-                        'block h-[3px] rounded-full transition-all',
-                        i === hero ? 'w-4 bg-crimson-600' : 'w-[3px] bg-blush-400',
-                      ].join(' ')}
-                    />
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={nextHero}
-                aria-label="Next photo"
-                className="grid h-[34px] w-[34px] flex-none place-items-center rounded-full border border-blush-300 bg-white text-wine-800 transition-colors hover:bg-wine-800 hover:text-white"
-              >
-                <ArrowRight />
-              </button>
-            </div>
+            <button
+              onClick={nextHero}
+              aria-label="Next photo"
+              className="grid h-[34px] w-[34px] flex-none place-items-center rounded-full border border-blush-300 bg-white text-wine-800 transition-colors hover:bg-wine-800 hover:text-white"
+            >
+              <ArrowRight />
+            </button>
           </div>
         </div>
       </section>
