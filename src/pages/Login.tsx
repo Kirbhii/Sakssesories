@@ -44,8 +44,8 @@ export default function Login() {
           <img
             src="/img/logo-mark.png"
             alt=""
-            width={220}
-            height={203}
+            width={640}
+            height={531}
             className="mx-auto mb-3.5 h-16 w-auto"
           />
           <p className="font-serif text-[26px] leading-none tracking-[-0.01em] text-ink-900">

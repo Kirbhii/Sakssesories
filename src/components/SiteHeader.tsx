@@ -32,12 +32,7 @@ const NAV: NavItem[] = [
   { to: '/users', label: 'Users', roles: ['gm'] },
 ];
 
-interface SiteHeaderProps {
-  /** Small line in the wine strip above the navbar. */
-  strip?: string;
-}
-
-export default function SiteHeader({ strip }: SiteHeaderProps) {
+export default function SiteHeader() {
   const { member, role, signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -52,17 +47,6 @@ export default function SiteHeader({ strip }: SiteHeaderProps) {
 
   return (
     <>
-      <div className="bg-wine-800 text-[9.5px] uppercase tracking-[0.16em] text-white/70">
-        <div className="mx-auto flex h-[30px] w-full max-w-[1240px] items-center justify-between px-4 md:px-8 max-md:justify-center">
-          <span>Saksesories PH{strip ? ` · ${strip}` : ''}</span>
-          <span className="max-md:hidden">
-            Free engraving on 2 letters
-            <span className="mx-2.5 opacity-40">·</span>
-            Pickup &amp; delivery
-          </span>
-        </div>
-      </div>
-
       <header className="sticky top-0 z-40 border-b border-blush-300/60 bg-white">
         <div className="mx-auto flex h-[64px] w-full max-w-[1240px] items-center justify-between gap-4 px-4 md:h-[76px] md:gap-6 md:px-8">
           <NavLink
@@ -73,8 +57,8 @@ export default function SiteHeader({ strip }: SiteHeaderProps) {
             <img
               src="/img/logo-mark.png"
               alt=""
-              width={220}
-              height={203}
+              width={640}
+              height={531}
               className="h-8 w-auto flex-none md:h-11"
             />
             <span className="flex min-w-0 flex-col">

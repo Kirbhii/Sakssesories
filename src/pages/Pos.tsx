@@ -106,7 +106,7 @@ export default function Pos() {
 
   return (
     <div className="min-h-screen bg-blush-50">
-      <SiteHeader strip="Staff" />
+      <SiteHeader />
 
       <main className="mx-auto max-w-[1560px]">
         <div className="grid grid-cols-[1fr_352px] items-stretch max-xl:grid-cols-1">

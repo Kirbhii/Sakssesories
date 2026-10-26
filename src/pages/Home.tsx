@@ -130,9 +130,14 @@ const DAYS = [
 // photo fills the whole hero, words included, so `focus` matters: the hero is
 // much wider than it is tall, and object-cover takes a horizontal band out of
 // each photo. These values keep the person's face and the bag in that band.
+// Each photo ships twice: a 960px file for phones and the full-width one for
+// a desktop. Without that split a phone would pull a megabyte of hero before
+// it drew anything, and a desktop would be stuck with a soft, upscaled image.
 const SLIDES = [
   {
     src: '/img/hero-1.webp',
+    small: '/img/hero-1-960.webp',
+    wide: 1920,
     alt: 'A man carrying a brown shoulder bag with the tan teardrop keychain clipped to the strap',
     label: 'The teardrop chain',
     caption: 'Clean, carry, keep close.',
@@ -140,6 +145,8 @@ const SLIDES = [
   },
   {
     src: '/img/hero-2.webp',
+    small: '/img/hero-2-960.webp',
+    wide: 1920,
     alt: 'A woman on an escalator with a black shoulder bag and the red heart keychain',
     label: 'The heart chain',
     caption: 'On the bag she carries every day.',
@@ -147,6 +154,8 @@ const SLIDES = [
   },
   {
     src: '/img/hero-3.webp',
+    small: '/img/hero-3-960.webp',
+    wide: 1651,
     alt: 'A woman in a pink shirt carrying a white shoulder bag with the red heart keychain',
     label: 'The heart chain',
     caption: 'A little colour on the way out.',
@@ -154,6 +163,8 @@ const SLIDES = [
   },
   {
     src: '/img/hero-4.webp',
+    small: '/img/hero-4-960.webp',
+    wide: 1920,
     alt: 'A woman in a brown top with the black heart keychain clipped at her waist',
     label: 'The black heart',
     caption: 'Not just for keys.',
@@ -234,6 +245,8 @@ export default function Home() {
           <img
             key={s.src}
             src={s.src}
+            srcSet={`${s.small} 960w, ${s.src} ${s.wide}w`}
+            sizes="100vw"
             alt={i === hero ? s.alt : ''}
             aria-hidden={i !== hero}
             draggable={false}
@@ -251,7 +264,7 @@ export default function Home() {
             runs full width, so the veil turns and works from the bottom up. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(249,239,241,0.98)_0%,rgba(249,239,241,0.96)_30%,rgba(249,239,241,0.90)_46%,rgba(249,239,241,0.55)_64%,rgba(249,239,241,0.16)_80%,rgba(249,239,241,0)_94%)] max-lg:bg-[linear-gradient(to_bottom,rgba(249,239,241,0.89)_0%,rgba(249,239,241,0.86)_42%,rgba(249,239,241,0.80)_72%,rgba(249,239,241,0.68)_100%)]"
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(249,239,241,0.93)_0%,rgba(249,239,241,0.87)_28%,rgba(249,239,241,0.62)_44%,rgba(249,239,241,0.22)_62%,rgba(249,239,241,0.04)_78%,rgba(249,239,241,0)_92%)] max-lg:bg-[linear-gradient(to_bottom,rgba(249,239,241,0.86)_0%,rgba(249,239,241,0.78)_38%,rgba(249,239,241,0.58)_66%,rgba(249,239,241,0.34)_88%,rgba(249,239,241,0.26)_100%)]"
         />
 
         <div className="relative z-10 flex flex-1 flex-col justify-center py-16 pr-14 pl-[max(2rem,calc((100vw-1240px)/2+2rem))] max-lg:px-8 max-md:px-5">
@@ -263,7 +276,7 @@ export default function Home() {
             A little style.
             <br />A clearer day.
           </h1>
-          <p className="mt-5 max-w-[40ch] text-[13.5px] leading-[1.75] text-ink-500">
+          <p className="mt-5 max-w-[40ch] text-[13.5px] leading-[1.75] text-ink-700">
             Meet ClearChain — a leather keychain with a microfiber pad, made to keep your glasses,
             screens, and everyday lenses clean, clear, and close at hand.
           </p>
@@ -288,7 +301,7 @@ export default function Home() {
               <a
                 key={label}
                 href="#collection"
-                className="inline-flex items-center gap-2 border-b border-transparent pb-0.5 text-[11px] text-ink-500 transition-colors hover:border-crimson-600 hover:text-crimson-600"
+                className="inline-flex items-center gap-2 border-b border-transparent pb-0.5 text-[11px] text-ink-700 transition-colors hover:border-crimson-600 hover:text-crimson-600"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-crimson-600/60" />
                 {label}

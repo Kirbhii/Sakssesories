@@ -22,8 +22,8 @@ export default function SiteFooter() {
             <img
               src="/img/logo-mark.png"
               alt=""
-              width={220}
-              height={203}
+              width={640}
+              height={531}
               className="h-14 w-auto"
             />
             <span className="mt-3 block font-serif text-[22px] text-ink-900">Saksesories PH</span>

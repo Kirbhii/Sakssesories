@@ -16,7 +16,7 @@ export default function Restricted({ need }: RestrictedProps) {
 
   return (
     <div className="min-h-screen bg-blush-50">
-      <SiteHeader strip="Staff" />
+      <SiteHeader />
 
       <main className="mx-auto max-w-[680px] px-7 py-16 max-md:px-5">
         <span className="eyebrow">Restricted</span>

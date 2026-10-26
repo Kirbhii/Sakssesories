@@ -24,7 +24,7 @@ export default function QuotaSettings() {
 
   return (
     <div className="min-h-screen bg-blush-50">
-      <SiteHeader strip="Staff" />
+      <SiteHeader />
 
       <main className="mx-auto max-w-[1100px] px-7 pb-9 pt-[26px] max-md:px-4">
         <h1 className="text-[clamp(26px,2.3vw,31px)]">Set the month.</h1>

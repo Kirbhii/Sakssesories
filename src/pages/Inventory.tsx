@@ -134,10 +134,10 @@ export default function Inventory() {
           className="flex flex-none items-center gap-2.5 whitespace-nowrap px-2 pb-[26px] max-md:px-0 max-md:pb-0"
         >
           <img
-            src="/img/logo-mark.png"
+            src="/img/logo-mark-light.png"
             alt=""
-            width={220}
-            height={203}
+            width={640}
+            height={531}
             className="h-8 w-auto flex-none md:h-9"
           />
           <span className="flex flex-col">
