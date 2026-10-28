@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
+import MockQr from '@/components/MockQr';
 import SiteHeader from '@/components/SiteHeader';
 import { useAuth } from '@/lib/auth';
 import {
@@ -677,6 +678,26 @@ export default function Pos() {
                   Cash is for staff selling on-site. Choose GCash, and the team will confirm payment
                   when your order is ready.
                 </p>
+              )}
+
+              {/* GCash: a stand-in for the scan-to-pay code. Labelled as a mock
+                  so nobody tries to pay it. */}
+              {payment === 'gcash' && total > 0 && (
+                <div className="mt-2.5 flex items-center gap-3 rounded-[6px] border border-blush-300 bg-white p-2.5">
+                  <MockQr size={92} />
+                  <div className="min-w-0">
+                    <p className="text-[8px] uppercase tracking-[0.15em] text-ink-300">
+                      Scan to pay
+                    </p>
+                    <p className="num mt-1 text-[16px] font-medium leading-none text-ink-900">
+                      {peso(total)}
+                    </p>
+                    <p className="mt-1 text-[9px] text-ink-500">GCash · Saksesories PH</p>
+                    <p className="mt-1.5 text-[8px] uppercase tracking-[0.12em] text-warn-600">
+                      Mock QR · not a real payment
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
 

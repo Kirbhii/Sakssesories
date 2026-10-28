@@ -1,7 +1,9 @@
 // ─── Sales records ──────────────────────────────────────────────────────────
-// The sample ledger. Shared by My sales (one person's rows), Finance (every
-// row, grouped by payment method) and the Summary tab (rows grouped by day or
-// month) so the three screens can never disagree.
+// The shop's ledger, in memory for now. Shared by My sales (one person's rows),
+// Finance (every row, grouped by payment method) and the Summary tab (rows
+// grouped by day, week or month) so the three screens can never disagree.
+//
+// It is empty until the Supabase read is wired up — see `SALES` below.
 //
 // One sale is a LINE, not an order. A customer can buy two pieces in different
 // variants under one OR number, and that becomes two rows sharing `orNo` — the
@@ -46,57 +48,19 @@ export interface Sale {
 const NOW = new Date();
 export const BASE = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
 
-// Every row is priced off the catalogue: qty × ₱59, plus ₱2 for each letter
-// past the two that come free. If the price in data.ts moves, these move with
-// it — a ledger that quotes a price the shop does not charge is worse than no
-// ledger at all.
+// The sample ledger is retired. The shop now has a real database, and nineteen
+// invented sales sitting next to real ones is worse than an empty table — the
+// team would be reconciling fiction. Every screen already handles the empty
+// case (empty states, zeroed totals), so this is a data change, not a code one.
 //
-// NAMING RULE: a customer must never share a name with a team member. When the
-// sample rows reused the staff list as customer names, opening the summary on
-// "Maria Santos" showed a sale to "Anna Sy" and it read as though her records
-// had not been fetched at all. The two name pools are separate on purpose.
-export const SALES: Sale[] = [
-  // ── today ────────────────────────────────────────────────────────────────
-  { id: 'L01', orNo: '990341', ago: 0, time: '11:03 AM', staffId: 'ana', customer: 'Maricel Dizon', variant: 'Heart / Maroon', engraving: 'JAM', occupation: 'Teacher', sex: 'F', location: 'Cebu City', qty: 1, cents: 6100, pay: 'cash' },
-  { id: 'L02', orNo: '990340', ago: 0, time: '10:48 AM', staffId: 'bea', customer: 'Juan Dela Cruz', variant: 'Teardrop / Tan', engraving: 'ANA', occupation: 'Engineer', sex: 'M', location: 'Davao City', qty: 1, cents: 6100, pay: 'gcash' },
-  // One order, two variants — the case the sheet needs to show.
-  { id: 'L03', orNo: '990338', ago: 0, time: '10:22 AM', staffId: 'ana', customer: 'Jhonelyn Patilla', variant: 'Heart / Black', engraving: '—', occupation: 'Student', sex: 'F', location: 'Quezon City', qty: 1, cents: 5900, pay: 'gcash' },
-  { id: 'L04', orNo: '990338', ago: 0, time: '10:22 AM', staffId: 'ana', customer: 'Jhonelyn Patilla', variant: 'Heart / Pink', engraving: '—', occupation: 'Student', sex: 'F', location: 'Quezon City', qty: 1, cents: 5900, pay: 'gcash' },
-  // One order, three variants.
-  { id: 'L05', orNo: '990332', ago: 0, time: '10:05 AM', staffId: 'ana', customer: 'Alexandra Parilla', variant: 'Heart / Maroon', engraving: '—', occupation: 'Teacher', sex: 'F', location: 'Cebu City', qty: 1, cents: 5900, pay: 'cash' },
-  { id: 'L06', orNo: '990332', ago: 0, time: '10:05 AM', staffId: 'ana', customer: 'Alexandra Parilla', variant: 'Heart / Navy blue', engraving: '—', occupation: 'Teacher', sex: 'F', location: 'Cebu City', qty: 1, cents: 5900, pay: 'cash' },
-  { id: 'L07', orNo: '990332', ago: 0, time: '10:05 AM', staffId: 'ana', customer: 'Alexandra Parilla', variant: 'Teardrop / Tan', engraving: '—', occupation: 'Teacher', sex: 'F', location: 'Cebu City', qty: 1, cents: 5900, pay: 'cash' },
-
-  // ── yesterday ────────────────────────────────────────────────────────────
-  { id: 'L08', orNo: '990326', ago: 1, time: '4:31 PM', staffId: 'dennis', customer: 'Rey Sarmiento', variant: 'Heart / Black', engraving: 'MIG', occupation: 'Driver', sex: 'M', location: 'Cebu City', qty: 1, cents: 6100, pay: 'cash' },
-  { id: 'L09', orNo: '990324', ago: 1, time: '3:58 PM', staffId: 'liza', customer: 'Cristina Uy', variant: 'Teardrop / Purple', engraving: '—', occupation: 'Nurse', sex: 'F', location: 'Mandaue City', qty: 1, cents: 5900, pay: 'gcash' },
-  { id: 'L10', orNo: '990321', ago: 1, time: '2:12 PM', staffId: 'rica', customer: 'Vilma Bacalso', variant: 'Heart / Tan', engraving: '—', occupation: 'Business owner', sex: 'F', location: 'Lapu-Lapu City', qty: 3, cents: 17700, pay: 'cash' },
-
-  // ── 2 days ago ───────────────────────────────────────────────────────────
-  { id: 'L11', orNo: '990318', ago: 2, time: '5:40 PM', staffId: 'paolo', customer: 'Jomar Abella', variant: 'Teardrop / Navy blue', engraving: 'JDC', occupation: 'Teacher', sex: 'M', location: 'Cebu City', qty: 1, cents: 6100, pay: 'gcash' },
-  { id: 'L12', orNo: '990315', ago: 2, time: '1:25 PM', staffId: 'noel', customer: 'Marites Cabahug', variant: 'Heart / Maroon', engraving: '—', occupation: 'Accountant', sex: 'F', location: 'Talisay City', qty: 1, cents: 5900, pay: 'cash' },
-
-  // ── 3 days ago ───────────────────────────────────────────────────────────
-  { id: 'L13', orNo: '990310', ago: 3, time: '11:52 AM', staffId: 'carlo', customer: 'Efren Villamor', variant: 'Heart / Purple', engraving: '—', occupation: 'Engineer', sex: 'M', location: 'Cebu City', qty: 2, cents: 11800, pay: 'gcash' },
-
-  // ── 5 days ago ───────────────────────────────────────────────────────────
-  { id: 'L14', orNo: '990304', ago: 5, time: '9:14 AM', staffId: 'kim', customer: 'Shiela Marie Go', variant: 'Teardrop / Tan', engraving: 'KIM', occupation: 'Student', sex: 'F', location: 'Mandaue City', qty: 1, cents: 6100, pay: 'cash' },
-
-  // ── 6 days ago ───────────────────────────────────────────────────────────
-  { id: 'L15', orNo: '990299', ago: 6, time: '4:07 PM', staffId: 'grace', customer: 'Trisha Salazar', variant: 'Heart / Pink', engraving: '—', occupation: 'Nurse', sex: 'F', location: 'Cebu City', qty: 1, cents: 5900, pay: 'cash' },
-
-  // ── 8 days ago ───────────────────────────────────────────────────────────
-  { id: 'L16', orNo: '990287', ago: 8, time: '3:33 PM', staffId: 'sofia', customer: 'Alvin Rosales', variant: 'Heart / Black', engraving: '—', occupation: 'Driver', sex: 'M', location: 'Danao City', qty: 2, cents: 11800, pay: 'cash' },
-
-  // ── 12 days ago ──────────────────────────────────────────────────────────
-  { id: 'L17', orNo: '990265', ago: 12, time: '10:41 AM', staffId: 'miguel', customer: 'Bernadette Chua', variant: 'Teardrop / Maroon', engraving: '—', occupation: 'Teacher', sex: 'F', location: 'Cebu City', qty: 1, cents: 5900, pay: 'cash' },
-
-  // ── 24 days ago ──────────────────────────────────────────────────────────
-  { id: 'L18', orNo: '990241', ago: 24, time: '2:48 PM', staffId: 'gabriel', customer: 'Roldan Amistad', variant: 'Heart / Navy blue', engraving: '—', occupation: 'Business owner', sex: 'M', location: 'Mandaue City', qty: 1, cents: 5900, pay: 'gcash' },
-
-  // ── 31 days ago ──────────────────────────────────────────────────────────
-  { id: 'L19', orNo: '990198', ago: 31, time: '1:06 PM', staffId: 'maria', customer: 'Clarissa Yap', variant: 'Teardrop / Black', engraving: '—', occupation: 'Accountant', sex: 'F', location: 'Cebu City', qty: 1, cents: 5900, pay: 'cash' },
-];
+// The nineteen rows that used to live here are in git history at 4088d31 if
+// they are ever wanted back for a demo.
+//
+// NAMING RULE, for when real rows arrive: a customer must never share a name
+// with a team member. When the old sample rows reused the staff list as
+// customer names, opening the summary on "Maria Santos" showed a sale to
+// "Anna Sy" and it read as though her records had not been fetched at all.
+export const SALES: Sale[] = [];
 
 /** Just one person's rows. Used by My sales for Marketing and Production. */
 export const salesOf = (staffId: string): Sale[] => SALES.filter((s) => s.staffId === staffId);

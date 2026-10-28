@@ -58,24 +58,27 @@ export const PLAN: QuotaPlan = {
   ],
 };
 
+// Progress starts at zero. The shop records real sales in its own database now,
+// so there is no invented tally to show next to them. Only the "how many so
+// far" numbers are empty — the GM's targets in PLAN are untouched.
 export const MEMBERS: Member[] = [
-  { id: 'ana', name: 'Ana Reyes', role: 'marketing', department: 'marketing', active: true, rungUp: 59, credited: 50 },
-  { id: 'bea', name: 'Bea Lim', role: 'marketing', department: 'marketing', active: true, rungUp: 44, credited: 44 },
-  { id: 'carla', name: 'Carla Domingo', role: 'marketing', department: 'marketing', active: true, rungUp: 39, credited: 39 },
-  { id: 'rica', name: 'Rica Flores', role: 'marketing', department: 'marketing', active: true, rungUp: 32, credited: 35 },
-  { id: 'paolo', name: 'Paolo Garcia', role: 'marketing', department: 'marketing', active: true, rungUp: 29, credited: 31 },
-  { id: 'noel', name: 'Noel Ramos', role: 'marketing', department: 'marketing', active: true, rungUp: 23, credited: 27 },
-  { id: 'carlo', name: 'Carlo Reyes', role: 'production', department: 'production', active: true, rungUp: 40, credited: 32 },
-  { id: 'dennis', name: 'Dennis Yu', role: 'production', department: 'production', active: true, rungUp: 30, credited: 30 },
-  { id: 'mark', name: 'Mark Bautista', role: 'production', department: 'production', active: true, rungUp: 25, credited: 28 },
-  { id: 'liza', name: 'Liza Mercado', role: 'production', department: 'production', active: true, rungUp: 24, credited: 24 },
-  { id: 'kim', name: 'Kim Tan', role: 'production', department: 'production', active: true, rungUp: 22, credited: 22 },
-  { id: 'grace', name: 'Grace Ong', role: 'production', department: 'production', active: true, rungUp: 16, credited: 19 },
-  { id: 'sofia', name: 'Sofia Cruz', role: 'production', department: 'production', active: true, rungUp: 15, credited: 15 },
-  { id: 'miguel', name: 'Miguel Torres', role: 'production', department: 'production', active: true, rungUp: 9, credited: 11 },
-  { id: 'gabriel', name: 'Gabriel Tan', role: 'gm', department: 'finance', active: true, rungUp: 38, credited: 34 },
-  { id: 'maria', name: 'Maria Santos', role: 'finance', department: 'finance', active: true, rungUp: 28, credited: 30 },
-  { id: 'anna', name: 'Anna Sy', role: 'finance', department: 'finance', active: true, rungUp: 25, credited: 27 },
+  { id: 'ana', name: 'Ana Reyes', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'bea', name: 'Bea Lim', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'carla', name: 'Carla Domingo', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'rica', name: 'Rica Flores', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'paolo', name: 'Paolo Garcia', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'noel', name: 'Noel Ramos', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'carlo', name: 'Carlo Reyes', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'dennis', name: 'Dennis Yu', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'mark', name: 'Mark Bautista', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'liza', name: 'Liza Mercado', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'kim', name: 'Kim Tan', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'grace', name: 'Grace Ong', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'sofia', name: 'Sofia Cruz', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'miguel', name: 'Miguel Torres', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'gabriel', name: 'Gabriel Tan', role: 'gm', department: 'finance', active: true, rungUp: 0, credited: 0 },
+  { id: 'maria', name: 'Maria Santos', role: 'finance', department: 'finance', active: true, rungUp: 0, credited: 0 },
+  { id: 'anna', name: 'Anna Sy', role: 'finance', department: 'finance', active: true, rungUp: 0, credited: 0 },
 ];
 
 /** Whoever is signed in. Pinned to the header chip until auth exists. */

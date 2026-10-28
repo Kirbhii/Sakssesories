@@ -140,7 +140,7 @@ export default function Finance() {
         </div>
 
         <p className="mt-4 text-[9px] leading-[1.6] text-ink-300">
-          Draft — these figures come from the sample ledger, not from a database yet.
+          Draft — these figures come from the local ledger, not from the database yet.
         </p>
     </main>
   );
