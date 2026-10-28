@@ -23,6 +23,8 @@ import {
   SALES,
   blockSpan,
   dateOf,
+  engravingCents,
+  engravingTotal,
   firstOfOrder,
   inRange,
   orderCount,
@@ -136,6 +138,8 @@ export default function MySales() {
   const lines = rows.length;
   const items = rows.reduce((sum, s) => sum + s.qty, 0);
   const sales = rows.reduce((sum, s) => sum + s.cents, 0);
+  // How much of that came from the letters rather than the pieces themselves.
+  const engraved = engravingTotal(rows);
   const average = orders ? Math.round(sales / orders) : 0;
 
   const baseSales = baseRows.reduce((n, s) => n + s.cents, 0);
@@ -500,6 +504,11 @@ export default function MySales() {
                     <td className="px-4 py-[9px] text-[10.5px] text-ink-500">{s.variant}</td>
                     <td className="px-4 py-[9px] text-[10.5px] tracking-[0.08em] text-ink-500">
                       {s.engraving}
+                      {engravingCents(s) > 0 && (
+                        <span className="num ml-1.5 text-[9.5px] font-medium tracking-normal text-ok-600">
+                          +{peso(engravingCents(s))}
+                        </span>
+                      )}
                     </td>
                     <td className="num px-4 py-[9px] text-[10.5px] text-ink-500">{s.qty}</td>
                     {first && (
@@ -517,8 +526,15 @@ export default function MySales() {
           </table>
         </div>
 
-        <div className="border-t border-blush-300/60 bg-blush-50 px-4 py-2.5 text-[9px] text-ink-300">
-          Showing {lines} of {total} {seesAll ? 'team' : 'own'} lines · {peso(sales)} total
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-blush-300/60 bg-blush-50 px-4 py-2.5 text-[9px] text-ink-300">
+          <span>
+            Showing {lines} of {total} {seesAll ? 'team' : 'own'} lines · {peso(sales)} total
+          </span>
+          {engraved > 0 && (
+            <span className="num">
+              {peso(engraved)} of it from engraving
+            </span>
+          )}
         </div>
       </section>
 

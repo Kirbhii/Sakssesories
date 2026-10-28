@@ -8,6 +8,8 @@
 // same way the shop's summary sheet lists them. `id` keeps each line unique so
 // React can key the table.
 
+import { engravingFee } from './data';
+
 export type Range = 'today' | 'week' | 'month' | 'all';
 export type PayMethod = 'cash' | 'gcash';
 export type Sex = 'F' | 'M' | '—';
@@ -109,6 +111,21 @@ export const PAY_LABEL: Record<PayMethod, string> = {
   cash: 'Cash',
   gcash: 'GCash',
 };
+
+/**
+ * What the engraving added to a line, in centavos. The catalogue gives the
+ * first two letters free and charges ₱2 each after that — per piece, because
+ * every piece in the order gets its own engraving.
+ */
+export function engravingCents(sale: Sale): number {
+  if (sale.engraving === '—') return 0;
+  const letters = sale.engraving.replace(/[^A-Za-z]/g, '').length;
+  return engravingFee(letters) * sale.qty;
+}
+
+/** How much of a set of rows came from engraving rather than the pieces. */
+export const engravingTotal = (rows: Sale[]): number =>
+  rows.reduce((n, s) => n + engravingCents(s), 0);
 
 /** The calendar day a row falls on (BASE minus `ago`). */
 export function dateObj(ago: number): Date {
