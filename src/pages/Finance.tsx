@@ -3,7 +3,7 @@ import { peso, peso2 } from '@/lib/data';
 import { COST_TOTAL } from '@/lib/materials';
 import { PAY_LABEL, SALES, inRange, type PayMethod } from '@/lib/sales';
 
-const PAY_ORDER: PayMethod[] = ['cash', 'gcash', 'card'];
+const PAY_ORDER: PayMethod[] = ['cash', 'gcash'];
 
 export default function Finance() {
   const [counted, setCounted] = useState('');
@@ -133,8 +133,7 @@ export default function Finance() {
               )}
 
               <p className="mt-3 text-[9px] leading-[1.6] text-ink-300">
-                Cash sales only. GCash and card are settled by the provider, so they never touch the
-                drawer.
+                Cash sales only. GCash is settled by the provider, so it never touches the drawer.
               </p>
             </div>
           </section>

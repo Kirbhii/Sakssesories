@@ -13,13 +13,12 @@ import {
 } from '@/lib/data';
 import { PLAN, barWidth, creditRecipient, memberOf, quotaOf, roomOf } from '@/lib/quota';
 
-type PaymentMethod = 'cash' | 'gcash' | 'card';
+type PaymentMethod = 'cash' | 'gcash';
 type Fulfilment = 'pickup' | 'delivery';
 
 const PAYMENTS: { id: PaymentMethod; label: string }[] = [
   { id: 'cash', label: 'Cash' },
   { id: 'gcash', label: 'GCash' },
-  { id: 'card', label: 'Card' },
 ];
 
 // Both are free for now — the team confirms the arrangement after the order is
@@ -646,7 +645,7 @@ export default function Pos() {
               <span className="mb-1 block text-[8px] uppercase tracking-[0.15em] text-ink-300">
                 Payment method
               </span>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
                 {PAYMENTS.map((p) => {
                   const locked = p.id === 'cash' && !isStaff;
                   return (
@@ -675,8 +674,8 @@ export default function Pos() {
 
               {!isStaff && (
                 <p className="mt-1.5 text-[9px] leading-[1.5] text-ink-300">
-                  Cash is for staff selling on-site. Choose GCash or Card, and the team will confirm
-                  payment when your order is ready.
+                  Cash is for staff selling on-site. Choose GCash, and the team will confirm payment
+                  when your order is ready.
                 </p>
               )}
             </div>

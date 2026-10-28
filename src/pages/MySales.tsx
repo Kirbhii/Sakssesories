@@ -91,7 +91,6 @@ export default function MySales() {
     const acc: Record<PayMethod, { cents: number; orders: Set<string> }> = {
       cash: { cents: 0, orders: new Set() },
       gcash: { cents: 0, orders: new Set() },
-      card: { cents: 0, orders: new Set() },
     };
     for (const s of baseRows) {
       acc[s.pay].cents += s.cents;
@@ -122,7 +121,6 @@ export default function MySales() {
     { id: 'all' as const, label: 'All payments', dot: '#8a5a33', cents: baseSales, orders: baseOrders },
     { id: 'cash' as const, label: PAY_LABEL.cash, dot: '#2f7d4f', cents: byPay.cash.cents, orders: byPay.cash.orders.size },
     { id: 'gcash' as const, label: PAY_LABEL.gcash, dot: '#1f5fa8', cents: byPay.gcash.cents, orders: byPay.gcash.orders.size },
-    { id: 'card' as const, label: PAY_LABEL.card, dot: '#5b3f6e', cents: byPay.card.cents, orders: byPay.card.orders.size },
   ];
 
   const values: Record<string, string> = {
@@ -131,17 +129,6 @@ export default function MySales() {
     sales: peso(sales),
     avg: peso(average),
   };
-
-  const best = useMemo(() => {
-    const map = new Map<string, { qty: number; cents: number }>();
-    rows.forEach((s) => {
-      const entry = map.get(s.variant) ?? { qty: 0, cents: 0 };
-      map.set(s.variant, { qty: entry.qty + s.qty, cents: entry.cents + s.cents });
-    });
-    return [...map.entries()].sort((a, b) => b[1].qty - a[1].qty).slice(0, 5);
-  }, [rows]);
-
-  const maxQty = best[0]?.[1].qty ?? 1;
 
   // The Staff column only exists for the people allowed to see everyone's work.
   const COLS = seesAll
@@ -360,7 +347,7 @@ export default function MySales() {
           <h2 className="text-[15px]">Payments</h2>
           <span className="text-[9px] uppercase tracking-[0.12em] text-ink-300">Tap to filter</span>
         </div>
-        <div className="grid grid-cols-4 gap-2.5 px-4 py-3 max-lg:grid-cols-2">
+        <div className="grid grid-cols-3 gap-2.5 px-4 py-3 max-md:grid-cols-1">
           {payChips.map((c) => {
             const active = pay === c.id;
             return (
@@ -471,37 +458,6 @@ export default function MySales() {
         </div>
       </section>
 
-      <section className="mt-[18px] overflow-hidden rounded-[7px] border border-blush-300 bg-white">
-        <div className="flex items-center justify-between gap-3 border-b border-blush-300/60 px-4 py-3.5">
-          <h2 className="text-[15px]">Best sellers</h2>
-          <span className="text-[9px] uppercase tracking-[0.12em] text-ink-300">In this range</span>
-        </div>
-        <div className="px-[18px] pb-4 pt-2">
-          {best.length === 0 && (
-            <p className="py-3.5 text-[11px] text-ink-300">Nothing sold in this range yet.</p>
-          )}
-          {best.map(([name, v]) => (
-            <div
-              key={name}
-              className="grid grid-cols-[1fr_78px] items-center gap-4 border-b border-blush-300/60 py-2.5 last:border-0"
-            >
-              <div>
-                <p className="text-[10.5px]">{name}</p>
-                <div className="mt-[7px] h-1 max-w-[420px] overflow-hidden rounded-full bg-blush-100">
-                  <i
-                    className="block h-full rounded-full bg-crimson-600"
-                    style={{ width: `${Math.round((v.qty / maxQty) * 100)}%` }}
-                  />
-                </div>
-              </div>
-              <div className="num text-right text-[10.5px]">
-                {peso(v.cents)}
-                <small className="mt-0.5 block text-[8.5px] text-ink-300">{v.qty} sold</small>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
     </main>
   );
 }

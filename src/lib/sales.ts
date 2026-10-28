@@ -9,7 +9,7 @@
 // React can key the table.
 
 export type Range = 'today' | 'week' | 'month' | 'all';
-export type PayMethod = 'cash' | 'gcash' | 'card';
+export type PayMethod = 'cash' | 'gcash';
 export type Sex = 'F' | 'M' | '—';
 
 export interface Sale {
@@ -55,7 +55,7 @@ export const SALES: Sale[] = [
 
   // ── Oct 19 ──────────────────────────────────────────────────────────────
   { id: 'L08', orNo: '990326', ago: 1, time: '4:31 PM', staffId: 'dennis', customer: 'Carlo Reyes', variant: 'Heart / Black', engraving: 'MIG', occupation: 'Driver', sex: 'M', location: 'Cebu City', qty: 1, cents: 6100, pay: 'cash' },
-  { id: 'L09', orNo: '990324', ago: 1, time: '3:58 PM', staffId: 'liza', customer: 'Sofia Cruz', variant: 'Teardrop / Purple', engraving: '—', occupation: 'Nurse', sex: 'F', location: 'Mandaue City', qty: 1, cents: 5900, pay: 'card' },
+  { id: 'L09', orNo: '990324', ago: 1, time: '3:58 PM', staffId: 'liza', customer: 'Sofia Cruz', variant: 'Teardrop / Purple', engraving: '—', occupation: 'Nurse', sex: 'F', location: 'Mandaue City', qty: 1, cents: 5900, pay: 'gcash' },
   { id: 'L10', orNo: '990321', ago: 1, time: '2:12 PM', staffId: 'rica', customer: 'Ana Villar', variant: 'Heart / Tan', engraving: '—', occupation: 'Business owner', sex: 'F', location: 'Lapu-Lapu City', qty: 3, cents: 17700, pay: 'cash' },
 
   // ── Oct 18 ──────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ export const SALES: Sale[] = [
   { id: 'L15', orNo: '990299', ago: 6, time: '4:07 PM', staffId: 'grace', customer: 'Rica Flores', variant: 'Heart / Pink', engraving: '—', occupation: 'Nurse', sex: 'F', location: 'Cebu City', qty: 1, cents: 5900, pay: 'cash' },
 
   // ── Oct 12 ──────────────────────────────────────────────────────────────
-  { id: 'L16', orNo: '990287', ago: 8, time: '3:33 PM', staffId: 'sofia', customer: 'Noel Ramos', variant: 'Heart / Black', engraving: '—', occupation: 'Driver', sex: 'M', location: 'Danao City', qty: 2, cents: 11800, pay: 'card' },
+  { id: 'L16', orNo: '990287', ago: 8, time: '3:33 PM', staffId: 'sofia', customer: 'Noel Ramos', variant: 'Heart / Black', engraving: '—', occupation: 'Driver', sex: 'M', location: 'Danao City', qty: 2, cents: 11800, pay: 'cash' },
 
   // ── Oct 8 ───────────────────────────────────────────────────────────────
   { id: 'L17', orNo: '990265', ago: 12, time: '10:41 AM', staffId: 'miguel', customer: 'Grace Ong', variant: 'Teardrop / Maroon', engraving: '—', occupation: 'Teacher', sex: 'F', location: 'Cebu City', qty: 1, cents: 5900, pay: 'cash' },
@@ -93,7 +93,6 @@ export const orderCount = (rows: Sale[]): number => new Set(rows.map((s) => s.or
 export const PAY_LABEL: Record<PayMethod, string> = {
   cash: 'Cash',
   gcash: 'GCash',
-  card: 'Card',
 };
 
 /** The calendar day a row falls on (BASE minus `ago`). */
