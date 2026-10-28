@@ -65,12 +65,16 @@ export function useAuth(): AuthValue {
   return ctx;
 }
 
-/** Where each role lands after signing in — every door is inside the portal. */
+/**
+ * Where each role lands after signing in. Everyone lands on the shop first —
+ * the portal is one click away in the profile menu, so the storefront stays the
+ * shared front door and no role is dropped straight into a back office.
+ */
 export const HOME_FOR: Record<MemberRole, string> = {
-  marketing: '/portal',
-  production: '/portal/inventory',
-  finance: '/portal/finance',
-  gm: '/portal',
+  marketing: '/',
+  production: '/',
+  finance: '/',
+  gm: '/',
 };
 
 export const ROLE_LABEL: Record<MemberRole, string> = {
