@@ -8,6 +8,7 @@ import {
   dateOf,
   dayLabel,
   monthOf,
+  orderCount,
   salesOf,
   shapeOf,
   type Sale,
@@ -37,6 +38,7 @@ const COLS: { label: string; align?: 'right' }[] = [
   { label: 'Time' },
   { label: 'Date' },
   { label: 'Customer' },
+  { label: 'OR No.' },
   { label: 'Shape' },
   { label: 'Color' },
   { label: 'Engraving' },
@@ -82,10 +84,16 @@ export default function Summary() {
   const [memberId, setMemberId] = useState(member?.id ?? MEMBERS[0].id);
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
 
+  // The scoped lines. A multi-variant order appears as several rows sharing one
+  // orNo, so "orders" is always counted from distinct OR numbers — not rows.
+  const rows = useMemo(
+    () => (scope === 'member' ? salesOf(memberId) : SALES),
+    [scope, memberId],
+  );
+
   // Group the scoped rows. The ledger is already ordered newest-first, and a
   // Map keeps insertion order, so the newest day/month lands at the top.
   const groups = useMemo<Group[]>(() => {
-    const rows = scope === 'member' ? salesOf(memberId) : SALES;
     const map = new Map<string, Group>();
     for (const s of rows) {
       const key = groupBy === 'day' ? `d-${s.ago}` : `m-${monthOf(s.ago)}`;
@@ -100,11 +108,11 @@ export default function Summary() {
       g.cents += s.cents;
     }
     return [...map.values()];
-  }, [scope, memberId, groupBy]);
+  }, [rows, groupBy]);
 
-  const orders = groups.reduce((n, g) => n + g.rows.length, 0);
-  const pieces = groups.reduce((n, g) => n + g.qty, 0);
-  const total = groups.reduce((n, g) => n + g.cents, 0);
+  const orders = useMemo(() => orderCount(rows), [rows]);
+  const pieces = rows.reduce((n, s) => n + s.qty, 0);
+  const total = rows.reduce((n, s) => n + s.cents, 0);
 
   const selected = MEMBERS.find((m) => m.id === memberId);
   const unit = groupBy === 'day' ? 'day' : 'month';
@@ -184,92 +192,100 @@ export default function Summary() {
         </div>
       )}
 
-      {groups.map((g) => (
-        <section
-          key={g.key}
-          className="mt-4 overflow-hidden rounded-[7px] border border-blush-300 bg-white"
-        >
-          <div className="flex items-center justify-between gap-3 border-b border-blush-300/60 px-4 py-3">
-            <h2 className="text-[14px]">{g.label}</h2>
-            <span className="num text-[10px] text-ink-500">
-              {g.rows.length} {g.rows.length === 1 ? 'order' : 'orders'} · {g.qty} pcs ·{' '}
-              {peso(g.cents)}
-            </span>
-          </div>
+      {groups.map((g) => {
+        const oc = orderCount(g.rows);
+        const lines = g.rows.length;
+        return (
+          <section
+            key={g.key}
+            className="mt-4 overflow-hidden rounded-[7px] border border-blush-300 bg-white"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-blush-300/60 px-4 py-3">
+              <h2 className="text-[14px]">{g.label}</h2>
+              <span className="num text-[10px] text-ink-500">
+                {oc} {oc === 1 ? 'order' : 'orders'}
+                {lines > oc ? ` · ${lines} lines` : ''} · {g.qty} pcs · {peso(g.cents)}
+              </span>
+            </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] border-collapse">
-              <thead>
-                <tr className="bg-blush-50">
-                  {COLS.map((c) => (
-                    <th
-                      key={c.label}
-                      className={[
-                        'border-b border-blush-300/60 px-3 py-[8px] text-[7.5px] font-medium uppercase tracking-[0.16em] text-ink-300',
-                        c.align === 'right' ? 'text-right' : 'text-left',
-                      ].join(' ')}
-                    >
-                      {c.label}
-                    </th>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1020px] border-collapse">
+                <thead>
+                  <tr className="bg-blush-50">
+                    {COLS.map((c) => (
+                      <th
+                        key={c.label}
+                        className={[
+                          'border-b border-blush-300/60 px-3 py-[8px] text-[7.5px] font-medium uppercase tracking-[0.16em] text-ink-300',
+                          c.align === 'right' ? 'text-right' : 'text-left',
+                        ].join(' ')}
+                      >
+                        {c.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.rows.map((s, i) => (
+                    <tr key={s.id} className="border-b border-blush-300/50 last:border-0">
+                      <td className="num whitespace-nowrap px-3 py-[8px] text-[10.5px] tracking-[0.02em]">
+                        {s.time}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
+                        {groupBy === 'day' ? (i === 0 ? dateOf(s.ago) : '') : dateOf(s.ago)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px]">{s.customer}</td>
+                      <td className="num whitespace-nowrap px-3 py-[8px] text-[10.5px] tracking-[0.04em] text-ink-500">
+                        {s.orNo}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
+                        {shapeOf(s)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
+                        {colourOf(s)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] tracking-[0.08em] text-ink-500">
+                        {s.engraving}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
+                        {s.occupation}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
+                        {s.sex}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
+                        {s.location}
+                      </td>
+                      <td className="num px-3 py-[8px] text-right text-[10.5px] text-ink-500">
+                        {s.qty}
+                      </td>
+                      <td className="num whitespace-nowrap px-3 py-[8px] text-right text-[10.5px]">
+                        {peso(s.cents)}
+                      </td>
+                    </tr>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {g.rows.map((s, i) => (
-                  <tr key={s.no} className="border-b border-blush-300/50 last:border-0">
-                    <td className="num whitespace-nowrap px-3 py-[8px] text-[10.5px] tracking-[0.02em]">
-                      {s.time}
+
+                  <tr className="bg-blush-50">
+                    <td
+                      colSpan={10}
+                      className="px-3 py-2 text-right text-[8px] uppercase tracking-[0.14em] text-ink-300"
+                    >
+                      Subtotal · {oc} {oc === 1 ? 'order' : 'orders'}
+                      {lines > oc ? ` · ${lines} lines` : ''}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                      {groupBy === 'day' ? (i === 0 ? dateOf(s.ago) : '') : dateOf(s.ago)}
+                    <td className="num px-3 py-2 text-right text-[10.5px] font-medium text-ink-900">
+                      {g.qty}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px]">{s.customer}</td>
-                    <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                      {shapeOf(s)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                      {colourOf(s)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] tracking-[0.08em] text-ink-500">
-                      {s.engraving}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                      {s.occupation}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                      {s.sex}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                      {s.location}
-                    </td>
-                    <td className="num px-3 py-[8px] text-right text-[10.5px] text-ink-500">
-                      {s.qty}
-                    </td>
-                    <td className="num whitespace-nowrap px-3 py-[8px] text-right text-[10.5px]">
-                      {peso(s.cents)}
+                    <td className="num whitespace-nowrap px-3 py-2 text-right text-[10.5px] font-medium text-ink-900">
+                      {peso(g.cents)}
                     </td>
                   </tr>
-                ))}
-
-                <tr className="bg-blush-50">
-                  <td
-                    colSpan={9}
-                    className="px-3 py-2 text-right text-[8px] uppercase tracking-[0.14em] text-ink-300"
-                  >
-                    Subtotal · {g.rows.length} {g.rows.length === 1 ? 'order' : 'orders'}
-                  </td>
-                  <td className="num px-3 py-2 text-right text-[10.5px] font-medium text-ink-900">
-                    {g.qty}
-                  </td>
-                  <td className="num whitespace-nowrap px-3 py-2 text-right text-[10.5px] font-medium text-ink-900">
-                    {peso(g.cents)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        );
+      })}
 
       {groups.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-[7px] border border-blush-300 bg-white px-4 py-3">

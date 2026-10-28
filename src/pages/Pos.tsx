@@ -29,6 +29,13 @@ const FULFILMENT: { id: Fulfilment; label: string; fee: number }[] = [
   { id: 'delivery', label: 'Delivery', fee: 0 },
 ];
 
+// Mock OR numbers. A real build would issue these from the receipt printer's
+// BIR sequence; here a session counter is enough to give each order its own
+// number. Every line in one cart shares the same OR — that is what lets the
+// summary sheet show a multi-variant order as several rows under one number.
+let OR_SEQ = 990342;
+const nextOrNo = () => String(OR_SEQ++);
+
 /** The colour each shape ships in — the one that matches its real photo. */
 const HOME_COLOUR: Record<ShapeId, string> = { heart: 'maroon', teardrop: 'black' };
 
@@ -120,6 +127,8 @@ export default function Pos() {
   const [payment, setPayment] = useState<PaymentMethod>(member ? 'cash' : 'gcash');
   const [cash, setCash] = useState('');
   const [done, setDone] = useState(false);
+  // One OR number per order — all cart lines share it.
+  const [orNo, setOrNo] = useState(nextOrNo);
 
   // The POS is open to everyone. A signed-out visitor is a customer ordering
   // for themselves (cash locked, no quota); a signed-in member is staff ringing
@@ -228,6 +237,7 @@ export default function Pos() {
       setDone(false);
       setCart([]);
       setEngraving('');
+      setOrNo(nextOrNo());
     }, 1400);
   }
 
@@ -528,6 +538,14 @@ export default function Pos() {
                 {lineCount} {lineCount === 1 ? 'item' : 'items'}
               </span>
             </div>
+
+            {cart.length > 0 && (
+              <p className="mt-1.5 text-[9px] text-ink-300">
+                {isStaff ? 'OR No.' : 'Order no.'}{' '}
+                <span className="num text-ink-500">{orNo}</span>
+                {cart.length > 1 ? ' · one receipt for every piece' : ''}
+              </p>
+            )}
 
             <div className="mt-3.5 border-t border-blush-300/60">
               {cart.length === 0 && (

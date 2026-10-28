@@ -68,7 +68,7 @@ export default function MySales() {
       (s) =>
         inRange(s.ago, range) &&
         (query === '' ||
-          `${s.customer} ${s.variant} ${s.no}`.toLowerCase().includes(query.toLowerCase())),
+          `${s.customer} ${s.variant} ${s.orNo}`.toLowerCase().includes(query.toLowerCase())),
     );
   }, [member, seesAll, range, query]);
 
@@ -110,8 +110,8 @@ export default function MySales() {
 
   // The Staff column only exists for the people allowed to see everyone's work.
   const COLS = seesAll
-    ? ['Order', 'Date', 'Staff', 'Customer', 'Variant', 'Engraving', 'Qty', 'Amount']
-    : ['Order', 'Date', 'Customer', 'Variant', 'Engraving', 'Qty', 'Amount'];
+    ? ['OR No.', 'Date', 'Staff', 'Customer', 'Variant', 'Engraving', 'Qty', 'Amount']
+    : ['OR No.', 'Date', 'Customer', 'Variant', 'Engraving', 'Qty', 'Amount'];
   const LAST = COLS.length - 1;
 
   return (
@@ -365,8 +365,8 @@ export default function MySales() {
                 </tr>
               )}
               {rows.map((s) => (
-                <tr key={s.no} className="border-b border-blush-300/60 last:border-0">
-                  <td className="num px-4 py-[9px] text-[10.5px] tracking-[0.04em]">{s.no}</td>
+                <tr key={s.id} className="border-b border-blush-300/60 last:border-0">
+                  <td className="num px-4 py-[9px] text-[10.5px] tracking-[0.04em]">{s.orNo}</td>
                   <td className="px-4 py-[9px] text-[10.5px] text-ink-500">{dateOf(s.ago)}</td>
                   {seesAll && (
                     <td className="px-4 py-[9px] text-[10.5px] text-ink-500">
