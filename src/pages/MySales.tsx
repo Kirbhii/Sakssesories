@@ -73,7 +73,15 @@ export default function MySales() {
   // Finance and the GM are allowed to see the whole team's orders; Marketing
   // and Production only see their own. The blueprint draws that line, so the
   // filter lives here rather than in the table component.
-  const seesAll = role === 'finance' || role === 'gm';
+  //
+  // But "allowed" is not "always". This tab is called My sales, and a Finance
+  // member opening it used to be shown the team's day under their own name —
+  // Maria Santos saw "4 orders" here and "1 order" in her own summary, and read
+  // it as the summary being broken. The scope now starts at the signed-in
+  // member and Everyone is an explicit choice.
+  const canSeeAll = role === 'finance' || role === 'gm';
+  const [scope, setScope] = useState<'mine' | 'all'>('mine');
+  const seesAll = canSeeAll && scope === 'all';
 
   // Rows before the payment filter — the range and search still apply, so the
   // payment chips always show totals for whatever range is on screen.
@@ -345,6 +353,32 @@ export default function MySales() {
             {r.label}
           </button>
         ))}
+
+        {/* Who the numbers below belong to. Only the people allowed to see the
+            team get the choice, and it starts on their own name. */}
+        {canSeeAll && (
+          <div className="ml-auto flex items-center gap-2 max-md:ml-0">
+            <span className="text-[8px] uppercase tracking-[0.14em] text-ink-300">Showing</span>
+            <div className="inline-flex rounded-pill border border-blush-300 bg-white p-[3px]">
+              {([
+                { id: 'mine' as const, label: 'Mine' },
+                { id: 'all' as const, label: 'Everyone' },
+              ]).map((o) => (
+                <button
+                  key={o.id}
+                  onClick={() => setScope(o.id)}
+                  aria-pressed={scope === o.id}
+                  className={[
+                    'rounded-pill px-3 py-[5px] text-[10.5px] transition-colors',
+                    scope === o.id ? 'bg-wine-800 text-white' : 'text-ink-500 hover:text-ink-900',
+                  ].join(' ')}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-[22px] grid grid-cols-4 gap-3 max-lg:grid-cols-2">
