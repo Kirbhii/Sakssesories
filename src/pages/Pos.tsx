@@ -12,7 +12,7 @@ import {
   peso,
   type ShapeId,
 } from '@/lib/data';
-import { accountOf, methodLabel, methodsInUse, useAccounts } from '@/lib/payaccounts';
+import { accountOf, methodLabel, methodsInUse, payeeFor, useAccounts } from '@/lib/payaccounts';
 import { PLAN, barWidth, creditRecipient, memberOf, quotaOf, roomOf } from '@/lib/quota';
 import { allSales, recordSales, type Sale } from '@/lib/sales';
 
@@ -169,15 +169,19 @@ export default function Pos() {
   // ── Who gets paid, and whose book the order lands in ──────────────────────
   // Staff: they are at the counter, so the money goes into their own account
   // and the row goes in their own book.
-  // Customer: nobody is at the counter to take the money, so the order is
-  // credited to whoever needs it most — and that is exactly whose QR the
-  // customer has to scan, or the shop cannot match the payment to the order.
+  // Customer: nobody is at the counter to take the money. The order goes to
+  // whoever needs it most *among the members who actually published a code for
+  // the method the customer picked* — otherwise the payment would be pointed at
+  // someone with no account to receive it, and the money and the credit would
+  // have to go to two different people.
   const accounts = useAccounts();
   const methods = useMemo(() => methodsInUse(accounts), [accounts]);
 
   const recipient = member ? creditRecipient(member.id) : null;
-  const creditId = member ? recipient : creditRecipient(null);
-  const blocked = creditId === null;
+  const creditId = member ? recipient : payment === 'cash' ? null : payeeFor(payment);
+  // The whole team being full is the only thing that stops an order outright;
+  // a missing code is a payment problem, not a quota problem.
+  const blocked = member ? recipient === null : creditRecipient(null) === null;
   const creditName = creditId ? memberOf(creditId)?.name : null;
 
   const payeeId = member ? member.id : creditId;
@@ -782,9 +786,7 @@ export default function Pos() {
                       <p className="mt-1 text-[10px] leading-[1.55] text-ink-900">
                         {isStaff
                           ? `You have no ${methodLabel(payment)} code yet.`
-                          : payee
-                            ? `${payee.name} has no ${methodLabel(payment)} account yet.`
-                            : `Nobody on the team takes ${methodLabel(payment)} yet.`}
+                          : `Nobody on the team takes ${methodLabel(payment)} yet.`}
                       </p>
                       <p className="mt-1 text-[9px] leading-[1.5] text-ink-500">
                         {isStaff ? (

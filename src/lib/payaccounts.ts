@@ -18,6 +18,7 @@
 // account_number, qr_data_url, created_at).
 
 import { useSyncExternalStore } from 'react';
+import { activeMembers, needOf, roomOf } from '@/lib/quota';
 
 export interface PayMethodInfo {
   id: string;
@@ -143,6 +144,31 @@ export const slugMethod = (label: string): string =>
 /** The label for a method id, falling back to the id itself. */
 export function methodLabel(id: string): string {
   return PRESET_METHODS.find((m) => m.id === id)?.label ?? accounts.find((a) => a.method === id)?.label ?? id;
+}
+
+/**
+ * Who should receive a customer's payment for this method.
+ *
+ * A customer ordering on their own has nobody at the counter, so the money has
+ * to land in a member's account. Picking "whoever needs it most" is not enough:
+ * that member may never have published a code, and then the customer is told
+ * the method is unavailable while a teammate with an account goes unused.
+ *
+ * So the pool is the members who actually published a code for this method, and
+ * the winner is whoever needs it most inside that pool — the same ranking
+ * `creditRecipient` uses. Sorting by `needOf` also does the right thing when
+ * everyone in the pool is at quota: they all score 0 and the first one still
+ * takes the money, because the shop is not going to refuse a sale.
+ *
+ * `null` means nobody can take this method at all.
+ */
+export function payeeFor(method: string): string | null {
+  const able = new Set(
+    accounts.filter((a) => a.method === method && a.qr).map((a) => a.memberId),
+  );
+  const pool = activeMembers.filter((m) => able.has(m.id));
+  if (!pool.length) return null;
+  return [...pool].sort((a, b) => needOf(b.id) - needOf(a.id) || roomOf(b.id) - roomOf(a.id))[0].id;
 }
 
 // ── Writes ──────────────────────────────────────────────────────────────────
