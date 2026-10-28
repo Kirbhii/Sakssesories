@@ -20,7 +20,6 @@ import {
 
 import {
   PAY_LABEL,
-  SALES,
   blockSpan,
   dateOf,
   engravingCents,
@@ -64,47 +63,37 @@ const KPI = [
 ] as const;
 
 export default function MySales() {
-  const { member, role } = useAuth();
+  const { member } = useAuth();
 
   const [range, setRange] = useState<Range>('today');
   const [query, setQuery] = useState('');
   const [pay, setPay] = useState<'all' | PayMethod>('all');
 
-  // Finance and the GM are allowed to see the whole team's orders; Marketing
-  // and Production only see their own. The blueprint draws that line, so the
-  // filter lives here rather than in the table component.
+  // This tab is the signed-in member's own book — always, for every role. The
+  // team-wide picture already has a home: Summary shows everyone's sales
+  // (Overall, open to the whole team) and Quota shows everyone's numbers. So
+  // there is nothing to duplicate here, and no reason for one person to read
+  // another person's takings on their own page.
   //
-  // But "allowed" is not "always". This tab is called My sales, and a Finance
-  // member opening it used to be shown the team's day under their own name —
-  // Maria Santos saw "4 orders" here and "1 order" in her own summary, and read
-  // it as the summary being broken. The scope now starts at the signed-in
-  // member and Everyone is an explicit choice.
-  const canSeeAll = role === 'finance' || role === 'gm';
-  const [scope, setScope] = useState<'mine' | 'all'>('mine');
-  const seesAll = canSeeAll && scope === 'all';
-
-  // Rows before the payment filter — the range and search still apply, so the
-  // payment chips always show totals for whatever range is on screen.
+  // It used to switch to the team's rows for Finance and the GM, which meant
+  // Maria Santos saw "4 orders" here and "1 order" in her own summary — the
+  // same complaint twice. One person, one book.
   const baseRows = useMemo(() => {
     if (!member) return [];
-    const scope = seesAll ? SALES : salesOf(member.id);
-    return scope.filter(
+    return salesOf(member.id).filter(
       (s) =>
         inRange(s.ago, range) &&
         (query === '' ||
           `${s.customer} ${s.variant} ${s.orNo}`.toLowerCase().includes(query.toLowerCase())),
     );
-  }, [member, seesAll, range, query]);
+  }, [member, range, query]);
 
   const rows = useMemo(
     () => (pay === 'all' ? baseRows : baseRows.filter((s) => s.pay === pay)),
     [baseRows, pay],
   );
 
-  const total = useMemo(
-    () => (member ? (seesAll ? SALES : salesOf(member.id)).length : 0),
-    [member, seesAll],
-  );
+  const total = useMemo(() => (member ? salesOf(member.id).length : 0), [member]);
 
   // Totals per payment method. Counted in distinct OR numbers so a multi-variant
   // order counts once, not once per line.
@@ -167,25 +156,20 @@ export default function MySales() {
     avg: peso(average),
   };
 
-  // The Staff column only exists for the people allowed to see everyone's work.
-  // "Total" (not "Amount") because the cell is merged per order and holds what
-  // the customer paid for the whole order, not the price of one line.
-  const COLS = seesAll
-    ? ['OR No.', 'Date', 'Staff', 'Customer', 'Variant', 'Engraving', 'Qty', 'Total']
-    : ['OR No.', 'Date', 'Customer', 'Variant', 'Engraving', 'Qty', 'Total'];
+  // One book, one person: no Staff column, because every row is the signed-in
+  // member's own. "Total" (not "Amount") because the cell is merged per order
+  // and holds what the customer paid for the whole order, not one line's price.
+  const COLS = ['OR No.', 'Date', 'Customer', 'Variant', 'Engraving', 'Qty', 'Total'];
   const LAST = COLS.length - 1;
 
   return (
     <main className="mx-auto max-w-[1560px] px-7 pb-9 pt-[26px] max-md:px-4">
       <div className="flex items-start justify-between gap-6 max-md:flex-col max-md:gap-3.5">
         <div>
-          <h1 className="text-[clamp(26px,2.3vw,31px)]">
-            {seesAll ? 'All sales.' : 'Your sales.'}
-          </h1>
+          <h1 className="text-[clamp(26px,2.3vw,31px)]">Your sales.</h1>
           <p className="mt-1.5 max-w-[62ch] text-[11.5px] text-ink-500">
-            {seesAll
-              ? `Every order the team recorded, with the staff member who rang it up. Signed in as ${member.name}.`
-              : `Every piece ${member.name.split(' ')[0]} sold — with the customer, the variant, and the engraving attached.`}
+            Every piece {member.name.split(' ')[0]} sold — with the customer, the variant, and
+            the engraving attached. For the whole team, open Summary.
           </p>
         </div>
         <div className="flex gap-2">
@@ -208,7 +192,7 @@ export default function MySales() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[8px] uppercase tracking-[0.17em] text-ink-300">
-                  {seesAll ? 'Your quota' : `${member.name.split(' ')[0]}'s quota`} · {PLAN.label}
+                  {member.name.split(' ')[0]}'s quota · {PLAN.label}
                 </p>
                 <p className="num mt-[7px] text-[26px] font-medium leading-none text-ink-900">
                   {member.credited}
@@ -353,32 +337,6 @@ export default function MySales() {
             {r.label}
           </button>
         ))}
-
-        {/* Who the numbers below belong to. Only the people allowed to see the
-            team get the choice, and it starts on their own name. */}
-        {canSeeAll && (
-          <div className="ml-auto flex items-center gap-2 max-md:ml-0">
-            <span className="text-[8px] uppercase tracking-[0.14em] text-ink-300">Showing</span>
-            <div className="inline-flex rounded-pill border border-blush-300 bg-white p-[3px]">
-              {([
-                { id: 'mine' as const, label: 'Mine' },
-                { id: 'all' as const, label: 'Everyone' },
-              ]).map((o) => (
-                <button
-                  key={o.id}
-                  onClick={() => setScope(o.id)}
-                  aria-pressed={scope === o.id}
-                  className={[
-                    'rounded-pill px-3 py-[5px] text-[10.5px] transition-colors',
-                    scope === o.id ? 'bg-wine-800 text-white' : 'text-ink-500 hover:text-ink-900',
-                  ].join(' ')}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="mt-[22px] grid grid-cols-4 gap-3 max-lg:grid-cols-2">
@@ -391,7 +349,7 @@ export default function MySales() {
             <p className="mt-1.5 text-[9px] text-ink-300">
               {k.key === 'orders' && `Recorded ${RANGES.find((r) => r.id === range)?.label.toLowerCase()}`}
               {k.key === 'items' && 'Pieces out the door'}
-              {k.key === 'sales' && (seesAll ? 'Recorded across the team' : 'Recorded under your name')}
+              {k.key === 'sales' && 'Recorded under your name'}
               {k.key === 'avg' && 'Per completed sale'}
             </p>
             <svg
@@ -492,9 +450,7 @@ export default function MySales() {
                   <td colSpan={COLS.length} className="px-4 py-[26px] text-[11px] text-ink-300">
                     {pay !== 'all'
                       ? `No ${PAY_LABEL[pay]} sales in this range.`
-                      : seesAll
-                        ? 'No sales in this range yet.'
-                        : 'You have not rung up a sale in this range yet.'}
+                      : 'You have not rung up a sale in this range yet.'}
                   </td>
                 </tr>
               )}
@@ -522,14 +478,6 @@ export default function MySales() {
                         >
                           {dateOf(s.ago)}
                         </td>
-                        {seesAll && (
-                          <td
-                            rowSpan={span}
-                            className="px-4 py-[9px] text-[10.5px] text-ink-500"
-                          >
-                            {memberOf(s.staffId)?.name ?? s.staffId}
-                          </td>
-                        )}
                         <td rowSpan={span} className="px-4 py-[9px] text-[10.5px]">
                           {s.customer}
                         </td>
@@ -562,7 +510,7 @@ export default function MySales() {
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-blush-300/60 bg-blush-50 px-4 py-2.5 text-[9px] text-ink-300">
           <span>
-            Showing {lines} of {total} {seesAll ? 'team' : 'own'} lines · {peso(sales)} total
+            Showing {lines} of {total} own lines · {peso(sales)} total
           </span>
           {engraved > 0 && (
             <span className="num">
