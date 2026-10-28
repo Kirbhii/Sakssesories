@@ -110,6 +110,20 @@ export default function MySales() {
     return acc;
   }, [baseRows]);
 
+  // What each order is worth. The Amount column prints this once per order
+  // rather than per line, so a multi-variant block reads as one sale — the
+  // same number the customer actually paid.
+  const orderTotals = useMemo(() => {
+    const m = new Map<string, { qty: number; cents: number }>();
+    for (const s of rows) {
+      const e = m.get(s.orNo) ?? { qty: 0, cents: 0 };
+      e.qty += s.qty;
+      e.cents += s.cents;
+      m.set(s.orNo, e);
+    }
+    return m;
+  }, [rows]);
+
   // The portal shell already guarantees a signed-in member, but keep the guard
   // so the screen never touches a null name if it is ever reached otherwise.
   if (!member) return null;
@@ -142,9 +156,11 @@ export default function MySales() {
   };
 
   // The Staff column only exists for the people allowed to see everyone's work.
+  // "Total" (not "Amount") because the cell is merged per order and holds what
+  // the customer paid for the whole order, not the price of one line.
   const COLS = seesAll
-    ? ['OR No.', 'Date', 'Staff', 'Customer', 'Variant', 'Engraving', 'Qty', 'Amount']
-    : ['OR No.', 'Date', 'Customer', 'Variant', 'Engraving', 'Qty', 'Amount'];
+    ? ['OR No.', 'Date', 'Staff', 'Customer', 'Variant', 'Engraving', 'Qty', 'Total']
+    : ['OR No.', 'Date', 'Customer', 'Variant', 'Engraving', 'Qty', 'Total'];
   const LAST = COLS.length - 1;
 
   return (
@@ -446,10 +462,12 @@ export default function MySales() {
               )}
               {rows.map((s, i) => {
                 // One order can be several lines (different variants under the
-                // same OR). The per-order cells — OR, date, staff, customer —
-                // are printed once and merged down the block, like the sheet.
+                // same OR). The per-order cells — OR, date, staff, customer,
+                // amount — are printed once and merged down the block, so a
+                // multi-variant order reads as one sale, not three.
                 const first = firstOfOrder(rows, i);
                 const span = first ? blockSpan(rows, i) : 0;
+                const tot = orderTotals.get(s.orNo);
                 return (
                   <tr key={s.id} className="border-b border-blush-300/60 last:border-0">
                     {first && (
@@ -484,7 +502,14 @@ export default function MySales() {
                       {s.engraving}
                     </td>
                     <td className="num px-4 py-[9px] text-[10.5px] text-ink-500">{s.qty}</td>
-                    <td className="num px-4 py-[9px] text-right text-[10.5px]">{peso(s.cents)}</td>
+                    {first && (
+                      <td
+                        rowSpan={span}
+                        className="num px-4 py-[9px] text-right text-[10.5px] font-medium"
+                      >
+                        {peso(tot?.cents ?? s.cents)}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
