@@ -18,7 +18,7 @@ import {
   teamLeft,
 } from '@/lib/quota';
 
-import { SALES, dateOf, inRange, salesOf, type Range } from '@/lib/sales';
+import { PAY_LABEL, SALES, dateOf, inRange, orderCount, salesOf, type PayMethod, type Range } from '@/lib/sales';
 
 const RANGES: { id: Range; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -55,13 +55,16 @@ export default function MySales() {
 
   const [range, setRange] = useState<Range>('today');
   const [query, setQuery] = useState('');
+  const [pay, setPay] = useState<'all' | PayMethod>('all');
 
   // Finance and the GM are allowed to see the whole team's orders; Marketing
   // and Production only see their own. The blueprint draws that line, so the
   // filter lives here rather than in the table component.
   const seesAll = role === 'finance' || role === 'gm';
 
-  const rows = useMemo(() => {
+  // Rows before the payment filter — the range and search still apply, so the
+  // payment chips always show totals for whatever range is on screen.
+  const baseRows = useMemo(() => {
     if (!member) return [];
     const scope = seesAll ? SALES : salesOf(member.id);
     return scope.filter(
@@ -72,10 +75,30 @@ export default function MySales() {
     );
   }, [member, seesAll, range, query]);
 
+  const rows = useMemo(
+    () => (pay === 'all' ? baseRows : baseRows.filter((s) => s.pay === pay)),
+    [baseRows, pay],
+  );
+
   const total = useMemo(
     () => (member ? (seesAll ? SALES : salesOf(member.id)).length : 0),
     [member, seesAll],
   );
+
+  // Totals per payment method. Counted in distinct OR numbers so a multi-variant
+  // order counts once, not once per line.
+  const byPay = useMemo(() => {
+    const acc: Record<PayMethod, { cents: number; orders: Set<string> }> = {
+      cash: { cents: 0, orders: new Set() },
+      gcash: { cents: 0, orders: new Set() },
+      card: { cents: 0, orders: new Set() },
+    };
+    for (const s of baseRows) {
+      acc[s.pay].cents += s.cents;
+      acc[s.pay].orders.add(s.orNo);
+    }
+    return acc;
+  }, [baseRows]);
 
   // The portal shell already guarantees a signed-in member, but keep the guard
   // so the screen never touches a null name if it is ever reached otherwise.
@@ -85,10 +108,22 @@ export default function MySales() {
   const meRoom = roomOf(member.id);
   const nextTo = creditRecipient(member.id);
 
-  const orders = rows.length;
+  const orders = orderCount(rows);
+  const lines = rows.length;
   const items = rows.reduce((sum, s) => sum + s.qty, 0);
   const sales = rows.reduce((sum, s) => sum + s.cents, 0);
   const average = orders ? Math.round(sales / orders) : 0;
+
+  const baseSales = baseRows.reduce((n, s) => n + s.cents, 0);
+  const baseOrders = orderCount(baseRows);
+
+  // One chip per payment method (plus "All"). Each chip doubles as the filter.
+  const payChips = [
+    { id: 'all' as const, label: 'All payments', dot: '#8a5a33', cents: baseSales, orders: baseOrders },
+    { id: 'cash' as const, label: PAY_LABEL.cash, dot: '#2f7d4f', cents: byPay.cash.cents, orders: byPay.cash.orders.size },
+    { id: 'gcash' as const, label: PAY_LABEL.gcash, dot: '#1f5fa8', cents: byPay.gcash.cents, orders: byPay.gcash.orders.size },
+    { id: 'card' as const, label: PAY_LABEL.card, dot: '#5b3f6e', cents: byPay.card.cents, orders: byPay.card.orders.size },
+  ];
 
   const values: Record<string, string> = {
     orders: String(orders),
@@ -321,8 +356,53 @@ export default function MySales() {
       </div>
 
       <section className="mt-[18px] overflow-hidden rounded-[7px] border border-blush-300 bg-white">
+        <div className="flex items-center justify-between gap-3 border-b border-blush-300/60 px-4 py-3">
+          <h2 className="text-[15px]">Payments</h2>
+          <span className="text-[9px] uppercase tracking-[0.12em] text-ink-300">Tap to filter</span>
+        </div>
+        <div className="grid grid-cols-4 gap-2.5 px-4 py-3 max-lg:grid-cols-2">
+          {payChips.map((c) => {
+            const active = pay === c.id;
+            return (
+              <button
+                key={c.id}
+                onClick={() => setPay(c.id)}
+                aria-pressed={active}
+                className={[
+                  'rounded-[6px] border px-3 py-2.5 text-left transition-colors',
+                  active
+                    ? 'border-crimson-600 bg-blush-50'
+                    : 'border-blush-300 bg-white hover:border-wine-800',
+                ].join(' ')}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
+                  <span className="text-[8px] uppercase tracking-[0.14em] text-ink-300">
+                    {c.label}
+                  </span>
+                </span>
+                <span className="num mt-1 block text-[16px] font-medium leading-none text-ink-900">
+                  {peso(c.cents)}
+                </span>
+                <span className="mt-1 block text-[8.5px] text-ink-300">
+                  {c.orders} {c.orders === 1 ? 'order' : 'orders'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="mt-[18px] overflow-hidden rounded-[7px] border border-blush-300 bg-white">
         <div className="flex items-center justify-between gap-3 border-b border-blush-300/60 px-4 py-3.5">
-          <h2 className="text-[15px]">Sales records</h2>
+          <h2 className="text-[15px]">
+            Sales records
+            {pay !== 'all' && (
+              <span className="ml-2 text-[10px] font-normal text-crimson-600">
+                · {PAY_LABEL[pay]}
+              </span>
+            )}
+          </h2>
           <label className="flex items-center gap-1.5 rounded-pill border border-blush-300 px-2.5 py-[5px]">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" className="h-2.5 w-2.5 text-ink-300">
               <circle cx="7" cy="7" r="4.4" />
@@ -358,9 +438,11 @@ export default function MySales() {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={COLS.length} className="px-4 py-[26px] text-[11px] text-ink-300">
-                    {seesAll
-                      ? 'No sales in this range yet.'
-                      : 'You have not rung up a sale in this range yet.'}
+                    {pay !== 'all'
+                      ? `No ${PAY_LABEL[pay]} sales in this range.`
+                      : seesAll
+                        ? 'No sales in this range yet.'
+                        : 'You have not rung up a sale in this range yet.'}
                   </td>
                 </tr>
               )}
@@ -385,7 +467,7 @@ export default function MySales() {
         </div>
 
         <div className="border-t border-blush-300/60 bg-blush-50 px-4 py-2.5 text-[9px] text-ink-300">
-          Showing {orders} of {total} {seesAll ? 'team' : 'own'} orders · {peso(sales)} total
+          Showing {lines} of {total} {seesAll ? 'team' : 'own'} lines · {peso(sales)} total
         </div>
       </section>
 

@@ -49,6 +49,13 @@ const COLS: { label: string; align?: 'right' }[] = [
   { label: 'Amount', align: 'right' },
 ];
 
+/** How many consecutive rows share this row's OR number (for a merged cell). */
+function blockSpan(rows: Sale[], start: number): number {
+  let n = 1;
+  while (start + n < rows.length && rows[start + n].orNo === rows[start].orNo) n += 1;
+  return n;
+}
+
 /** A small two-option pill, used for both scope and grouping. */
 function Segmented<T extends string>({
   value,
@@ -226,44 +233,85 @@ export default function Summary() {
                   </tr>
                 </thead>
                 <tbody>
-                  {g.rows.map((s, i) => (
-                    <tr key={s.id} className="border-b border-blush-300/50 last:border-0">
-                      <td className="num whitespace-nowrap px-3 py-[8px] text-[10.5px] tracking-[0.02em]">
-                        {s.time}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                        {groupBy === 'day' ? (i === 0 ? dateOf(s.ago) : '') : dateOf(s.ago)}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px]">{s.customer}</td>
-                      <td className="num whitespace-nowrap px-3 py-[8px] text-[10.5px] tracking-[0.04em] text-ink-500">
-                        {s.orNo}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                        {shapeOf(s)}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                        {colourOf(s)}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] tracking-[0.08em] text-ink-500">
-                        {s.engraving}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                        {s.occupation}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                        {s.sex}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-[8px] text-[10.5px] text-ink-500">
-                        {s.location}
-                      </td>
-                      <td className="num px-3 py-[8px] text-right text-[10.5px] text-ink-500">
-                        {s.qty}
-                      </td>
-                      <td className="num whitespace-nowrap px-3 py-[8px] text-right text-[10.5px]">
-                        {peso(s.cents)}
-                      </td>
-                    </tr>
-                  ))}
+                  {g.rows.map((s, i) => {
+                    // Same OR as the line above → the same order. Render its
+                    // per-order cells once, merged across the block, exactly
+                    // like the merged TIME / NAME / OR cells in the sheet.
+                    const firstOfOrder = i === 0 || g.rows[i - 1].orNo !== s.orNo;
+                    const span = firstOfOrder ? blockSpan(g.rows, i) : 0;
+                    return (
+                      <tr key={s.id}>
+                        {firstOfOrder && (
+                          <>
+                            <td
+                              rowSpan={span}
+                              className="num whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px] tracking-[0.02em]"
+                            >
+                              {s.time}
+                            </td>
+                            <td
+                              rowSpan={span}
+                              className="whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px] text-ink-500"
+                            >
+                              {dateOf(s.ago)}
+                            </td>
+                            <td
+                              rowSpan={span}
+                              className="whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px]"
+                            >
+                              {s.customer}
+                            </td>
+                            <td
+                              rowSpan={span}
+                              className="num whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px] tracking-[0.04em] text-ink-500"
+                            >
+                              {s.orNo}
+                            </td>
+                          </>
+                        )}
+
+                        <td className="whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px] text-ink-500">
+                          {shapeOf(s)}
+                        </td>
+                        <td className="whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px] text-ink-500">
+                          {colourOf(s)}
+                        </td>
+                        <td className="whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px] tracking-[0.08em] text-ink-500">
+                          {s.engraving}
+                        </td>
+
+                        {firstOfOrder && (
+                          <>
+                            <td
+                              rowSpan={span}
+                              className="whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px] text-ink-500"
+                            >
+                              {s.occupation}
+                            </td>
+                            <td
+                              rowSpan={span}
+                              className="whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px] text-ink-500"
+                            >
+                              {s.sex}
+                            </td>
+                            <td
+                              rowSpan={span}
+                              className="whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px] text-ink-500"
+                            >
+                              {s.location}
+                            </td>
+                          </>
+                        )}
+
+                        <td className="num border-b border-blush-300/50 px-3 py-[8px] text-right text-[10.5px] text-ink-500">
+                          {s.qty}
+                        </td>
+                        <td className="num whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-right text-[10.5px]">
+                          {peso(s.cents)}
+                        </td>
+                      </tr>
+                    );
+                  })}
 
                   <tr className="bg-blush-50">
                     <td
