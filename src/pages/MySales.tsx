@@ -18,7 +18,18 @@ import {
   teamLeft,
 } from '@/lib/quota';
 
-import { PAY_LABEL, SALES, dateOf, inRange, orderCount, salesOf, type PayMethod, type Range } from '@/lib/sales';
+import {
+  PAY_LABEL,
+  SALES,
+  blockSpan,
+  dateOf,
+  firstOfOrder,
+  inRange,
+  orderCount,
+  salesOf,
+  type PayMethod,
+  type Range,
+} from '@/lib/sales';
 
 const RANGES: { id: Range; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -405,7 +416,7 @@ export default function MySales() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse [&_td]:align-top">
             <thead>
               <tr className="bg-blush-50">
                 {COLS.map((h, i) => (
@@ -433,22 +444,50 @@ export default function MySales() {
                   </td>
                 </tr>
               )}
-              {rows.map((s) => (
-                <tr key={s.id} className="border-b border-blush-300/60 last:border-0">
-                  <td className="num px-4 py-[9px] text-[10.5px] tracking-[0.04em]">{s.orNo}</td>
-                  <td className="px-4 py-[9px] text-[10.5px] text-ink-500">{dateOf(s.ago)}</td>
-                  {seesAll && (
-                    <td className="px-4 py-[9px] text-[10.5px] text-ink-500">
-                      {memberOf(s.staffId)?.name ?? s.staffId}
+              {rows.map((s, i) => {
+                // One order can be several lines (different variants under the
+                // same OR). The per-order cells — OR, date, staff, customer —
+                // are printed once and merged down the block, like the sheet.
+                const first = firstOfOrder(rows, i);
+                const span = first ? blockSpan(rows, i) : 0;
+                return (
+                  <tr key={s.id} className="border-b border-blush-300/60 last:border-0">
+                    {first && (
+                      <>
+                        <td
+                          rowSpan={span}
+                          className="num px-4 py-[9px] text-[10.5px] tracking-[0.04em]"
+                        >
+                          {s.orNo}
+                        </td>
+                        <td
+                          rowSpan={span}
+                          className="whitespace-nowrap px-4 py-[9px] text-[10.5px] text-ink-500"
+                        >
+                          {dateOf(s.ago)}
+                        </td>
+                        {seesAll && (
+                          <td
+                            rowSpan={span}
+                            className="px-4 py-[9px] text-[10.5px] text-ink-500"
+                          >
+                            {memberOf(s.staffId)?.name ?? s.staffId}
+                          </td>
+                        )}
+                        <td rowSpan={span} className="px-4 py-[9px] text-[10.5px]">
+                          {s.customer}
+                        </td>
+                      </>
+                    )}
+                    <td className="px-4 py-[9px] text-[10.5px] text-ink-500">{s.variant}</td>
+                    <td className="px-4 py-[9px] text-[10.5px] tracking-[0.08em] text-ink-500">
+                      {s.engraving}
                     </td>
-                  )}
-                  <td className="px-4 py-[9px] text-[10.5px]">{s.customer}</td>
-                  <td className="px-4 py-[9px] text-[10.5px] text-ink-500">{s.variant}</td>
-                  <td className="px-4 py-[9px] text-[10.5px] tracking-[0.08em] text-ink-500">{s.engraving}</td>
-                  <td className="num px-4 py-[9px] text-[10.5px] text-ink-500">{s.qty}</td>
-                  <td className="num px-4 py-[9px] text-right text-[10.5px]">{peso(s.cents)}</td>
-                </tr>
-              ))}
+                    <td className="num px-4 py-[9px] text-[10.5px] text-ink-500">{s.qty}</td>
+                    <td className="num px-4 py-[9px] text-right text-[10.5px]">{peso(s.cents)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -5,9 +5,11 @@ import { MEMBERS } from '@/lib/quota';
 import {
   PAY_LABEL,
   SALES,
+  blockSpan,
   colourOf,
   dateOf,
   dayLabel,
+  firstOfOrder,
   monthOf,
   orderCount,
   salesOf,
@@ -51,13 +53,6 @@ const COLS: { label: string; align?: 'right' }[] = [
   { label: 'Qty', align: 'right' },
   { label: 'Amount', align: 'right' },
 ];
-
-/** How many consecutive rows share this row's OR number (for a merged cell). */
-function blockSpan(rows: Sale[], start: number): number {
-  let n = 1;
-  while (start + n < rows.length && rows[start + n].orNo === rows[start].orNo) n += 1;
-  return n;
-}
 
 /** A small two-option pill, used for both scope and grouping. */
 function Segmented<T extends string>({
@@ -253,11 +248,11 @@ export default function Summary() {
                     // Same OR as the line above → the same order. Render its
                     // per-order cells once, merged across the block, exactly
                     // like the merged TIME / NAME / OR cells in the sheet.
-                    const firstOfOrder = i === 0 || g.rows[i - 1].orNo !== s.orNo;
-                    const span = firstOfOrder ? blockSpan(g.rows, i) : 0;
+                    const first = firstOfOrder(g.rows, i);
+                    const span = first ? blockSpan(g.rows, i) : 0;
                     return (
                       <tr key={s.id}>
-                        {firstOfOrder && (
+                        {first && (
                           <>
                             <td
                               rowSpan={span}
@@ -296,7 +291,7 @@ export default function Summary() {
                           {s.engraving}
                         </td>
 
-                        {firstOfOrder && (
+                        {first && (
                           <>
                             <td
                               rowSpan={span}

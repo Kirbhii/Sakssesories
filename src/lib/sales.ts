@@ -90,6 +90,21 @@ export const salesOf = (staffId: string): Sale[] => SALES.filter((s) => s.staffI
 /** How many distinct orders (OR numbers) a set of lines covers. */
 export const orderCount = (rows: Sale[]): number => new Set(rows.map((s) => s.orNo)).size;
 
+/**
+ * How many consecutive rows share this row's OR number — the height of the
+ * merged cell. The ledger keeps the lines of one order next to each other, so
+ * a scan forward is enough; a row whose neighbours differ gets 1.
+ */
+export function blockSpan(rows: Sale[], start: number): number {
+  let n = 1;
+  while (start + n < rows.length && rows[start + n].orNo === rows[start].orNo) n += 1;
+  return n;
+}
+
+/** True when this row is the first line of its order (so it owns the merged cells). */
+export const firstOfOrder = (rows: Sale[], i: number): boolean =>
+  i === 0 || rows[i - 1].orNo !== rows[i].orNo;
+
 export const PAY_LABEL: Record<PayMethod, string> = {
   cash: 'Cash',
   gcash: 'GCash',
