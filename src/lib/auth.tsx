@@ -161,9 +161,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const m = await memberFromAuth(data.user.id);
         if (!m) {
-          // A real login with no staff profile behind it. Let them go.
+          // A real login with no staff record behind it. That is a setup
+          // problem, not a wrong password, so say which one it is — "ask the GM
+          // to add you" is useless advice when the GM is the one signing in.
           await supabase.auth.signOut();
-          return 'That login is not linked to a staff account. Ask the GM to add you.';
+          return 'This login has no staff record linked to it yet. Run supabase/link-logins.sql once, then sign in again.';
         }
         setMember(m);
         return null;

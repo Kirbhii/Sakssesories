@@ -268,6 +268,22 @@ insert into public.profiles (slug, email, full_name, role, department) values
   ('anna',    'anna.sy@saksesories.ph',         'Anna Sy',         'finance',    'finance')
 on conflict (slug) do nothing;
 
+-- ─── Link the logins that were already there ────────────────────────────────
+-- The trigger above only fires for a user created AFTER it exists. If the
+-- logins were added in Authentication → Users before this file was pasted, the
+-- trigger never saw them, and every one of them signs in successfully and is
+-- then told "no staff record linked to this login".
+--
+-- This is the backfill for exactly that, and it is why the file is safe to
+-- paste on a project that already has users. It only fills blanks, so running
+-- it again changes nothing.
+update public.profiles p
+set auth_id = u.id
+from auth.users u
+where lower(p.email) = lower(u.email)
+  and p.auth_id is null;
+
+
 -- ════════════════════════════════════════════════════════════════════════════
 -- Next: create the logins
 -- ════════════════════════════════════════════════════════════════════════════
