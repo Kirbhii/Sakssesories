@@ -3,6 +3,7 @@ import { useAuth } from '@/lib/auth';
 import { peso } from '@/lib/data';
 import { MEMBERS } from '@/lib/quota';
 import {
+  PAY_LABEL,
   SALES,
   colourOf,
   dateOf,
@@ -11,6 +12,7 @@ import {
   orderCount,
   salesOf,
   shapeOf,
+  type PayMethod,
   type Sale,
 } from '@/lib/sales';
 
@@ -25,6 +27,7 @@ import {
 
 type Scope = 'member' | 'overall';
 type GroupBy = 'day' | 'month';
+type PayFilter = 'all' | PayMethod;
 
 interface Group {
   key: string;
@@ -90,13 +93,14 @@ export default function Summary() {
   const [scope, setScope] = useState<Scope>('member');
   const [memberId, setMemberId] = useState(member?.id ?? MEMBERS[0].id);
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
+  const [pay, setPay] = useState<PayFilter>('all');
 
   // The scoped lines. A multi-variant order appears as several rows sharing one
   // orNo, so "orders" is always counted from distinct OR numbers — not rows.
-  const rows = useMemo(
-    () => (scope === 'member' ? salesOf(memberId) : SALES),
-    [scope, memberId],
-  );
+  const rows = useMemo(() => {
+    const scoped = scope === 'member' ? salesOf(memberId) : SALES;
+    return pay === 'all' ? scoped : scoped.filter((s) => s.pay === pay);
+  }, [scope, memberId, pay]);
 
   // Group the scoped rows. The ledger is already ordered newest-first, and a
   // Map keeps insertion order, so the newest day/month lands at the top.
@@ -176,6 +180,16 @@ export default function Summary() {
             { id: 'month', label: 'By month' },
           ]}
         />
+
+        <Segmented
+          value={pay}
+          onChange={setPay}
+          options={[
+            { id: 'all', label: 'All payments' },
+            { id: 'cash', label: 'Cash' },
+            { id: 'gcash', label: 'GCash' },
+          ]}
+        />
       </div>
 
       {/* ── Totals ───────────────────────────────────────────────────────── */}
@@ -195,7 +209,9 @@ export default function Summary() {
       {/* ── Grouped rows ─────────────────────────────────────────────────── */}
       {groups.length === 0 && (
         <div className="mt-4 rounded-[7px] border border-blush-300 bg-white px-4 py-6 text-[11px] text-ink-300">
-          No sales in this view yet.
+          {pay === 'all'
+            ? 'No sales in this view yet.'
+            : `No ${PAY_LABEL[pay]} sales in this view yet.`}
         </div>
       )}
 
@@ -216,7 +232,7 @@ export default function Summary() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1020px] border-collapse">
+              <table className="w-full min-w-[1020px] border-collapse [&_td]:align-top">
                 <thead>
                   <tr className="bg-blush-50">
                     {COLS.map((c) => (
