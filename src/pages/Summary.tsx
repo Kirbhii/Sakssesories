@@ -16,6 +16,8 @@ import {
   orderCount,
   salesOf,
   shapeOf,
+  weekKey,
+  weekLabel,
   type PayMethod,
   type Sale,
 } from '@/lib/sales';
@@ -30,7 +32,7 @@ import {
 // The numbers it shows are the ones a shopkeeper needs to reconcile a day.
 
 type Scope = 'member' | 'overall';
-type GroupBy = 'day' | 'month';
+type GroupBy = 'day' | 'week' | 'month';
 type PayFilter = 'all' | PayMethod;
 
 interface Group {
@@ -55,6 +57,9 @@ const COLS: { label: string; align?: 'right' }[] = [
   { label: 'Qty', align: 'right' },
   { label: 'Amount', align: 'right' },
 ];
+
+/** "1 pc" / "3 pcs" — the sheet is read by people, so say it properly. */
+const pcs = (n: number): string => `${n} ${n === 1 ? 'pc' : 'pcs'}`;
 
 /** A small two-option pill, used for both scope and grouping. */
 function Segmented<T extends string>({
@@ -100,12 +105,18 @@ export default function Summary() {
   }, [scope, memberId, pay]);
 
   // Group the scoped rows. The ledger is already ordered newest-first, and a
-  // Map keeps insertion order, so the newest day/month lands at the top.
+  // Map keeps insertion order, so the newest day/week/month lands at the top.
   const groups = useMemo<Group[]>(() => {
     const map = new Map<string, Group>();
     for (const s of rows) {
-      const key = groupBy === 'day' ? `d-${s.ago}` : `m-${monthOf(s.ago)}`;
-      const label = groupBy === 'day' ? dayLabel(s.ago) : monthOf(s.ago);
+      const key =
+        groupBy === 'day'
+          ? `d-${s.ago}`
+          : groupBy === 'week'
+            ? `w-${weekKey(s.ago)}`
+            : `m-${monthOf(s.ago)}`;
+      const label =
+        groupBy === 'day' ? dayLabel(s.ago) : groupBy === 'week' ? weekLabel(s.ago) : monthOf(s.ago);
       let g = map.get(key);
       if (!g) {
         g = { key, label, rows: [], qty: 0, cents: 0 };
@@ -125,7 +136,7 @@ export default function Summary() {
   const engraved = engravingTotal(rows);
 
   const selected = MEMBERS.find((m) => m.id === memberId);
-  const unit = groupBy === 'day' ? 'day' : 'month';
+  const unit = groupBy === 'day' ? 'day' : groupBy === 'week' ? 'week' : 'month';
 
   return (
     <main className="mx-auto max-w-[1560px] px-7 pb-9 pt-[26px] max-md:px-4">
@@ -181,6 +192,7 @@ export default function Summary() {
           onChange={setGroupBy}
           options={[
             { id: 'day', label: 'By day' },
+            { id: 'week', label: 'By week' },
             { id: 'month', label: 'By month' },
           ]}
         />
@@ -231,7 +243,7 @@ export default function Summary() {
               <h2 className="text-[14px]">{g.label}</h2>
               <span className="num text-[10px] text-ink-500">
                 {oc} {oc === 1 ? 'order' : 'orders'}
-                {lines > oc ? ` · ${lines} lines` : ''} · {g.qty} pcs · {peso(g.cents)}
+                {lines > oc ? ` · ${lines} lines` : ''} · {pcs(g.qty)} · {peso(g.cents)}
               </span>
             </div>
 
@@ -365,7 +377,7 @@ export default function Summary() {
           <span className="text-[8px] uppercase tracking-[0.14em] text-ink-300">Grand total</span>
           <span className="flex flex-wrap items-baseline gap-2">
             <span className="num text-[12px] font-medium text-ink-900">
-              {orders} {orders === 1 ? 'order' : 'orders'} · {pieces} pcs · {peso(total)}
+              {orders} {orders === 1 ? 'order' : 'orders'} · {pcs(pieces)} · {peso(total)}
             </span>
             {engraved > 0 && (
               <span className="num text-[10px] text-ok-600">{peso(engraved)} from engraving</span>
