@@ -6,6 +6,7 @@ import Pos from '@/pages/Pos';
 import Portal from '@/pages/Portal';
 import MySales from '@/pages/MySales';
 import Summary from '@/pages/Summary';
+import PaymentQr from '@/pages/PaymentQr';
 import Inventory from '@/pages/Inventory';
 import Finance from '@/pages/Finance';
 import QuotaSettings from '@/pages/QuotaSettings';
@@ -77,6 +78,8 @@ export default function App() {
           <Route index element={<MySales />} />
           {/* The overall summary is open to every staff member, so no RequireRole. */}
           <Route path="summary" element={<Summary />} />
+          {/* Every member publishes their own payment codes, so no RequireRole. */}
+          <Route path="payment" element={<PaymentQr />} />
           <Route path="inventory" element={<Inventory />} />
           <Route
             path="finance"

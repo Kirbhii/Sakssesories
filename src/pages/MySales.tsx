@@ -19,7 +19,6 @@ import {
 } from '@/lib/quota';
 
 import {
-  PAY_LABEL,
   blockSpan,
   dateOf,
   engravingCents,
@@ -27,10 +26,20 @@ import {
   firstOfOrder,
   inRange,
   orderCount,
+  payLabel,
   salesOf,
-  type PayMethod,
+  sortPay,
+  useLedger,
   type Range,
 } from '@/lib/sales';
+
+/** The little colour dot on each payment chip. */
+const PAY_DOT: Record<string, string> = {
+  cash: '#2f7d4f',
+  gcash: '#1f5fa8',
+  maribank: '#7a3ea8',
+  maya: '#1b8a6b',
+};
 
 const RANGES: { id: Range; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -67,7 +76,12 @@ export default function MySales() {
 
   const [range, setRange] = useState<Range>('today');
   const [query, setQuery] = useState('');
-  const [pay, setPay] = useState<'all' | PayMethod>('all');
+  const [pay, setPay] = useState<string>('all');
+
+  // Re-render whenever an order is recorded, and carry the version into every
+  // memo that reads the ledger — otherwise a sale rung up in the POS tab would
+  // not appear until the page was reloaded.
+  const ledger = useLedger();
 
   // This tab is the signed-in member's own book — always, for every role. The
   // team-wide picture already has a home: Summary shows everyone's sales
@@ -86,25 +100,26 @@ export default function MySales() {
         (query === '' ||
           `${s.customer} ${s.variant} ${s.orNo}`.toLowerCase().includes(query.toLowerCase())),
     );
-  }, [member, range, query]);
+  }, [member, range, query, ledger]);
 
   const rows = useMemo(
     () => (pay === 'all' ? baseRows : baseRows.filter((s) => s.pay === pay)),
     [baseRows, pay],
   );
 
-  const total = useMemo(() => (member ? salesOf(member.id).length : 0), [member]);
+  const total = useMemo(() => (member ? salesOf(member.id).length : 0), [member, ledger]);
 
   // Totals per payment method. Counted in distinct OR numbers so a multi-variant
-  // order counts once, not once per line.
+  // order counts once, not once per line. The methods are whatever actually
+  // appears in the rows — a member can publish an account for a method the app
+  // has never heard of, and it belongs in this row like any other.
   const byPay = useMemo(() => {
-    const acc: Record<PayMethod, { cents: number; orders: Set<string> }> = {
-      cash: { cents: 0, orders: new Set() },
-      gcash: { cents: 0, orders: new Set() },
-    };
+    const acc = new Map<string, { cents: number; orders: Set<string> }>();
     for (const s of baseRows) {
-      acc[s.pay].cents += s.cents;
-      acc[s.pay].orders.add(s.orNo);
+      const entry = acc.get(s.pay) ?? { cents: 0, orders: new Set<string>() };
+      entry.cents += s.cents;
+      entry.orders.add(s.orNo);
+      acc.set(s.pay, entry);
     }
     return acc;
   }, [baseRows]);
@@ -141,12 +156,26 @@ export default function MySales() {
 
   const baseSales = baseRows.reduce((n, s) => n + s.cents, 0);
   const baseOrders = orderCount(baseRows);
+  // How many of the visible orders arrived from a customer rather than a
+  // member standing at the counter — counted per order, not per line.
+  const fromCustomers = new Set(
+    rows.filter((s) => s.origin === 'customer').map((s) => s.orNo),
+  ).size;
 
   // One chip per payment method (plus "All"). Each chip doubles as the filter.
+  // Built from the rows themselves, so a method a member added themselves shows
+  // up here the first time they are paid that way.
   const payChips = [
-    { id: 'all' as const, label: 'All payments', dot: '#8a5a33', cents: baseSales, orders: baseOrders },
-    { id: 'cash' as const, label: PAY_LABEL.cash, dot: '#2f7d4f', cents: byPay.cash.cents, orders: byPay.cash.orders.size },
-    { id: 'gcash' as const, label: PAY_LABEL.gcash, dot: '#1f5fa8', cents: byPay.gcash.cents, orders: byPay.gcash.orders.size },
+    { id: 'all', label: 'All payments', dot: '#8a5a33', cents: baseSales, orders: baseOrders },
+    ...[...byPay.entries()]
+      .sort((a, b) => sortPay(a[0], b[0]))
+      .map(([id, v]) => ({
+        id,
+        label: payLabel(id),
+        dot: PAY_DOT[id] ?? '#8a5a33',
+        cents: v.cents,
+        orders: v.orders.size,
+      })),
   ];
 
   const values: Record<string, string> = {
@@ -409,7 +438,7 @@ export default function MySales() {
             Sales records
             {pay !== 'all' && (
               <span className="ml-2 text-[10px] font-normal text-crimson-600">
-                · {PAY_LABEL[pay]}
+                · {payLabel(pay)}
               </span>
             )}
           </h2>
@@ -449,7 +478,7 @@ export default function MySales() {
                 <tr>
                   <td colSpan={COLS.length} className="px-4 py-[26px] text-[11px] text-ink-300">
                     {pay !== 'all'
-                      ? `No ${PAY_LABEL[pay]} sales in this range.`
+                      ? `No ${payLabel(pay)} sales in this range.`
                       : 'You have not rung up a sale in this range yet.'}
                   </td>
                 </tr>
@@ -480,6 +509,20 @@ export default function MySales() {
                         </td>
                         <td rowSpan={span} className="px-4 py-[9px] text-[10.5px]">
                           {s.customer}
+                          {/* The mark that stops a member thinking they sold
+                              something they never touched. An order placed by
+                              the customer on their own is credited to whoever
+                              needed it most — it lands in this book with no
+                              ringer, so it has to say where it came from. */}
+                          {s.origin === 'customer' && (
+                            <span
+                              title="The customer ordered on their own, with nobody signed in. It was credited to you because you had the most room left."
+                              className="mt-1 flex w-fit items-center gap-1 rounded-pill bg-blush-100 px-1.5 py-[1px] text-[7.5px] uppercase tracking-[0.1em] text-ink-500"
+                            >
+                              <i className="h-[3px] w-[3px] flex-none rounded-full bg-crimson-600" />
+                              Customer order
+                            </span>
+                          )}
                         </td>
                       </>
                     )}
@@ -512,11 +555,12 @@ export default function MySales() {
           <span>
             Showing {lines} of {total} own lines · {peso(sales)} total
           </span>
-          {engraved > 0 && (
-            <span className="num">
-              {peso(engraved)} of it from engraving
-            </span>
-          )}
+          <span className="flex flex-wrap items-center gap-3">
+            {fromCustomers > 0 && (
+              <span className="num">{fromCustomers} from customer orders</span>
+            )}
+            {engraved > 0 && <span className="num">{peso(engraved)} of it from engraving</span>}
+          </span>
         </div>
       </section>
 

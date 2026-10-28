@@ -3,8 +3,7 @@ import { useAuth } from '@/lib/auth';
 import { peso } from '@/lib/data';
 import { MEMBERS } from '@/lib/quota';
 import {
-  PAY_LABEL,
-  SALES,
+  allSales,
   blockSpan,
   colourOf,
   dateOf,
@@ -14,11 +13,13 @@ import {
   firstOfOrder,
   monthOf,
   orderCount,
+  payLabel,
   salesOf,
   shapeOf,
+  sortPay,
+  useLedger,
   weekKey,
   weekLabel,
-  type PayMethod,
   type Sale,
 } from '@/lib/sales';
 
@@ -33,7 +34,7 @@ import {
 
 type Scope = 'member' | 'overall';
 type GroupBy = 'day' | 'week' | 'month';
-type PayFilter = 'all' | PayMethod;
+type PayFilter = string;
 
 interface Group {
   key: string;
@@ -96,13 +97,30 @@ export default function Summary() {
   const [memberId, setMemberId] = useState(member?.id ?? MEMBERS[0].id);
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [pay, setPay] = useState<PayFilter>('all');
+  // Re-render when an order is recorded, and keep the version in the deps of
+  // every memo below so the sheet never shows a stale set of rows.
+  const ledger = useLedger();
 
-  // The scoped lines. A multi-variant order appears as several rows sharing one
-  // orNo, so "orders" is always counted from distinct OR numbers — not rows.
-  const rows = useMemo(() => {
-    const scoped = scope === 'member' ? salesOf(memberId) : SALES;
-    return pay === 'all' ? scoped : scoped.filter((s) => s.pay === pay);
-  }, [scope, memberId, pay]);
+  // The scoped lines, before the payment filter — the filter chips are built
+  // from these, so picking a method cannot make the other chips disappear.
+  const scoped = useMemo(
+    () => (scope === 'member' ? salesOf(memberId) : allSales()),
+    [scope, memberId, ledger],
+  );
+
+  // A member can publish an account for a method the app has never heard of, so
+  // the filter offers whatever the rows actually used.
+  const payOptions = useMemo(
+    () => [...new Set(scoped.map((s) => s.pay))].sort(sortPay),
+    [scoped],
+  );
+
+  // A multi-variant order appears as several rows sharing one orNo, so "orders"
+  // is always counted from distinct OR numbers — not rows.
+  const rows = useMemo(
+    () => (pay === 'all' ? scoped : scoped.filter((s) => s.pay === pay)),
+    [scoped, pay],
+  );
 
   // Group the scoped rows. The ledger is already ordered newest-first, and a
   // Map keeps insertion order, so the newest day/week/month lands at the top.
@@ -202,8 +220,7 @@ export default function Summary() {
           onChange={setPay}
           options={[
             { id: 'all', label: 'All payments' },
-            { id: 'cash', label: 'Cash' },
-            { id: 'gcash', label: 'GCash' },
+            ...payOptions.map((id) => ({ id, label: payLabel(id) })),
           ]}
         />
       </div>
@@ -227,7 +244,7 @@ export default function Summary() {
         <div className="mt-4 rounded-[7px] border border-blush-300 bg-white px-4 py-6 text-[11px] text-ink-300">
           {pay === 'all'
             ? 'No sales in this view yet.'
-            : `No ${PAY_LABEL[pay]} sales in this view yet.`}
+            : `No ${payLabel(pay)} sales in this view yet.`}
         </div>
       )}
 
@@ -292,6 +309,18 @@ export default function Summary() {
                               className="whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px]"
                             >
                               {s.customer}
+                              {/* Same mark as My sales: this order was placed
+                                  by the customer, not rung up at the counter,
+                                  so it was credited to whoever had room. */}
+                              {s.origin === 'customer' && (
+                                <span
+                                  title="The customer ordered on their own, with nobody signed in."
+                                  className="mt-1 flex w-fit items-center gap-1 rounded-pill bg-blush-100 px-1.5 py-[1px] text-[7px] uppercase tracking-[0.1em] text-ink-500"
+                                >
+                                  <i className="h-[3px] w-[3px] flex-none rounded-full bg-crimson-600" />
+                                  Customer order
+                                </span>
+                              )}
                             </td>
                             <td
                               rowSpan={span}

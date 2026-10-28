@@ -10,11 +10,28 @@
 // same way the shop's summary sheet lists them. `id` keeps each line unique so
 // React can key the table.
 
+import { useSyncExternalStore } from 'react';
 import { engravingFee } from './data';
 
 export type Range = 'today' | 'week' | 'month' | 'all';
-export type PayMethod = 'cash' | 'gcash';
+/**
+ * How the money came in. `cash` and the e-money ids are the common ones; a
+ * member can publish an account for any method they like (MariBank, Maya, …),
+ * so this stays open rather than a closed union.
+ */
+export type PayMethod = string;
 export type Sex = 'F' | 'M' | '—';
+
+/**
+ * Where the order came from.
+ *   counter   a member was signed in and rang it up — their own sale
+ *   customer  the customer ordered on their own, so nobody was at the counter;
+ *             the order was credited to whoever needed it most
+ *
+ * A member reading their own book needs to tell these apart, or a piece they
+ * never sold shows up under their name with no explanation.
+ */
+export type Origin = 'counter' | 'customer';
 
 export interface Sale {
   /** Unique per line item — React key. */
@@ -25,7 +42,11 @@ export interface Sale {
   ago: number;
   /** Time of day the sale was rung up, as shown on the summary sheet. */
   time: string;
-  /** Who rang it up. This is the `rungUp` half of the record — it never moves. */
+  /**
+   * Whose book this row lives in. For a counter sale that is the member who
+   * rang it up; for a customer order there is no ringer, so it is the member
+   * the sale was credited to.
+   */
   staffId: string;
   customer: string;
   /** "Heart / Maroon" — split into shape + colour by shapeOf()/colourOf(). */
@@ -37,6 +58,8 @@ export interface Sale {
   qty: number;
   cents: number;
   pay: PayMethod;
+  /** Counter sale or customer's own order. See `Origin`. */
+  origin: Origin;
 }
 
 /**
@@ -62,8 +85,98 @@ export const BASE = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
 // "Anna Sy" and it read as though her records had not been fetched at all.
 export const SALES: Sale[] = [];
 
-/** Just one person's rows. Used by My sales for Marketing and Production. */
-export const salesOf = (staffId: string): Sale[] => SALES.filter((s) => s.staffId === staffId);
+// ── The live ledger ─────────────────────────────────────────────────────────
+// Orders rung up in the POS are appended here and written to localStorage, so a
+// sale survives a reload until Supabase takes over. `SALES` above stays as the
+// seed for anything imported from elsewhere; `allSales()` is what every screen
+// reads, so the tables never disagree about what was sold.
+
+const LEDGER_KEY = 'skph.ledger';
+
+function readLedger(): Sale[] {
+  try {
+    const raw = window.localStorage.getItem(LEDGER_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (s): s is Sale =>
+        !!s && typeof s === 'object' && typeof (s as Sale).id === 'string',
+    );
+  } catch {
+    return [];
+  }
+}
+
+let live: Sale[] = readLedger();
+let version = 0;
+let cache: Sale[] = SALES;
+let cacheVersion = -1;
+const listeners = new Set<() => void>();
+
+/**
+ * Every row, newest first. The array identity only changes when the ledger
+ * does, so `useMemo` consumers are not invalidated on every render.
+ */
+export function allSales(): Sale[] {
+  if (cacheVersion !== version) {
+    cache = live.length ? [...live, ...SALES] : SALES;
+    cacheVersion = version;
+  }
+  return cache;
+}
+
+/** Append a finished order. Returns false if the browser refused to store it. */
+export function recordSales(rows: Sale[]): boolean {
+  if (!rows.length) return false;
+  const next = [...rows, ...live];
+  let stored = true;
+  try {
+    window.localStorage.setItem(LEDGER_KEY, JSON.stringify(next));
+  } catch {
+    stored = false; // private mode, or the shelf is full — keep it in memory
+  }
+  live = next;
+  version += 1;
+  listeners.forEach((fn) => fn());
+  return stored;
+}
+
+/** Wipe the locally recorded orders. Used by the dev reset, not by the shop. */
+export function clearLedger(): void {
+  try {
+    window.localStorage.removeItem(LEDGER_KEY);
+  } catch {
+    /* nothing to clean up */
+  }
+  live = [];
+  version += 1;
+  listeners.forEach((fn) => fn());
+}
+
+export function subscribeLedger(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+
+/**
+ * Subscribe a screen to the ledger. Returns the version number — put it in the
+ * dependency list of any `useMemo` that reads `allSales()` or `salesOf()`, or
+ * the table will keep showing the rows it had before the sale was recorded.
+ */
+export function useLedger(): number {
+  return useSyncExternalStore(
+    subscribeLedger,
+    () => version,
+    () => version,
+  );
+}
+
+/** Just one person's rows. */
+export const salesOf = (staffId: string): Sale[] =>
+  allSales().filter((s) => s.staffId === staffId);
 
 /** How many distinct orders (OR numbers) a set of lines covers. */
 export const orderCount = (rows: Sale[]): number => new Set(rows.map((s) => s.orNo)).size;
@@ -83,10 +196,27 @@ export function blockSpan(rows: Sale[], start: number): number {
 export const firstOfOrder = (rows: Sale[], i: number): boolean =>
   i === 0 || rows[i - 1].orNo !== rows[i].orNo;
 
-export const PAY_LABEL: Record<PayMethod, string> = {
+// ── Payment labels ──────────────────────────────────────────────────────────
+// A member can publish an account for a method the app has never heard of, so
+// the label is looked up rather than indexed — an unknown id falls back to
+// itself instead of printing "undefined" in the table.
+
+const PAY_LABELS: Record<string, string> = {
   cash: 'Cash',
   gcash: 'GCash',
+  maribank: 'MariBank',
+  maya: 'Maya',
 };
+
+export const payLabel = (pay: string): string => PAY_LABELS[pay] ?? pay;
+
+/** Cash first, then the e-money methods in a stable order. */
+export function sortPay(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a === 'cash') return -1;
+  if (b === 'cash') return 1;
+  return a.localeCompare(b);
+}
 
 /**
  * What the engraving added to a line, in centavos. The catalogue gives the

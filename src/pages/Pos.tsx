@@ -1,5 +1,5 @@
-import { useRef, useState, type ReactNode } from 'react';
-import MockQr from '@/components/MockQr';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import SiteHeader from '@/components/SiteHeader';
 import { useAuth } from '@/lib/auth';
 import {
@@ -12,15 +12,12 @@ import {
   peso,
   type ShapeId,
 } from '@/lib/data';
+import { accountOf, methodLabel, methodsInUse, useAccounts } from '@/lib/payaccounts';
 import { PLAN, barWidth, creditRecipient, memberOf, quotaOf, roomOf } from '@/lib/quota';
+import { allSales, recordSales, type Sale } from '@/lib/sales';
 
-type PaymentMethod = 'cash' | 'gcash';
+type PaymentMethod = string;
 type Fulfilment = 'pickup' | 'delivery';
-
-const PAYMENTS: { id: PaymentMethod; label: string }[] = [
-  { id: 'cash', label: 'Cash' },
-  { id: 'gcash', label: 'GCash' },
-];
 
 // Both are free for now — the team confirms the arrangement after the order is
 // sent. Change the fee here when a delivery charge is decided.
@@ -30,11 +27,23 @@ const FULFILMENT: { id: Fulfilment; label: string; fee: number }[] = [
 ];
 
 // Mock OR numbers. A real build would issue these from the receipt printer's
-// BIR sequence; here a session counter is enough to give each order its own
-// number. Every line in one cart shares the same OR — that is what lets the
-// summary sheet show a multi-variant order as several rows under one number.
+// BIR sequence; here a counter is enough to give each order its own number.
+// Every line in one cart shares the same OR — that is what lets the summary
+// sheet show a multi-variant order as several rows under one number.
+//
+// The counter alone is not enough: it resets on every page load, so a sale rung
+// up after a reload would reuse a number already in the ledger and the summary
+// would merge two unrelated orders into one. So the next number is always one
+// past the highest OR already recorded.
 let OR_SEQ = 990342;
-const nextOrNo = () => String(OR_SEQ++);
+function nextOrNo(): string {
+  const highest = allSales().reduce((max, s) => {
+    const n = Number(s.orNo);
+    return Number.isFinite(n) && n > max ? n : max;
+  }, 0);
+  OR_SEQ = Math.max(OR_SEQ, highest + 1);
+  return String(OR_SEQ++);
+}
 
 /** The colour each shape ships in — the one that matches its real photo. */
 const HOME_COLOUR: Record<ShapeId, string> = { heart: 'maroon', teardrop: 'black' };
@@ -156,9 +165,33 @@ export default function Pos() {
 
   const meQuota = member ? quotaOf(member.id) : 0;
   const meRoom = member ? roomOf(member.id) : 0;
+
+  // ── Who gets paid, and whose book the order lands in ──────────────────────
+  // Staff: they are at the counter, so the money goes into their own account
+  // and the row goes in their own book.
+  // Customer: nobody is at the counter to take the money, so the order is
+  // credited to whoever needs it most — and that is exactly whose QR the
+  // customer has to scan, or the shop cannot match the payment to the order.
+  const accounts = useAccounts();
+  const methods = useMemo(() => methodsInUse(accounts), [accounts]);
+
   const recipient = member ? creditRecipient(member.id) : null;
-  const blocked = isStaff && recipient === null;
-  const creditName = recipient ? memberOf(recipient)?.name : null;
+  const creditId = member ? recipient : creditRecipient(null);
+  const blocked = creditId === null;
+  const creditName = creditId ? memberOf(creditId)?.name : null;
+
+  const payeeId = member ? member.id : creditId;
+  const payee = payeeId ? memberOf(payeeId) : null;
+  const payAccount =
+    payeeId && payment !== 'cash' ? accountOf(payeeId, payment) : undefined;
+  // An account with no picture of the code cannot be scanned, so it counts as
+  // no account at all — a customer must never be shown a stand-in QR that pays
+  // nobody.
+  const payCode = payAccount?.qr ?? null;
+  // A customer cannot send money to an account that does not exist yet, so the
+  // order is held. Staff get a nudge instead — they can always collect another
+  // way, and the sale still has to be recorded.
+  const payBlocked = !isStaff && payment !== 'cash' && total > 0 && !payCode;
 
   const missing: string[] = [];
   if (!details.name.trim()) missing.push('name');
@@ -231,7 +264,32 @@ export default function Pos() {
 
   function complete() {
     if (!cart.length || missing.length) return;
-    if (isStaff && blocked) return;
+    if (blocked || payBlocked || !creditId) return;
+
+    // The order becomes rows in the ledger — one row per cart line, all sharing
+    // this OR number, exactly the way the shop's summary sheet lists a
+    // multi-variant order. `origin` is what tells a member, later, whether they
+    // rang this up themselves or whether it arrived from a customer.
+    const at = new Date();
+    const rows: Sale[] = cart.map((l, i) => ({
+      id: `${orNo}-${i}-${at.getTime()}`,
+      orNo,
+      ago: 0,
+      time: at.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }),
+      staffId: creditId,
+      customer: details.name.trim(),
+      variant: `${l.shapeName} / ${l.colourName}`,
+      engraving: l.engraving || '—',
+      occupation: '—',
+      sex: '—',
+      location: details.fulfilment === 'delivery' ? 'Delivery' : 'Store pickup',
+      qty: l.qty,
+      cents: l.unit * l.qty,
+      pay: payment,
+      origin: isStaff ? 'counter' : 'customer',
+    }));
+    recordSales(rows);
+
     setDone(true);
     window.setTimeout(() => {
       setDone(false);
@@ -647,7 +705,7 @@ export default function Pos() {
                 Payment method
               </span>
               <div className="grid grid-cols-2 gap-1.5">
-                {PAYMENTS.map((p) => {
+                {[{ id: 'cash', label: 'Cash' }, ...methods].map((p) => {
                   const locked = p.id === 'cash' && !isStaff;
                   return (
                     <button
@@ -675,29 +733,75 @@ export default function Pos() {
 
               {!isStaff && (
                 <p className="mt-1.5 text-[9px] leading-[1.5] text-ink-300">
-                  Cash is for staff selling on-site. Choose GCash, and the team will confirm payment
-                  when your order is ready.
+                  Cash is for staff selling on-site. Choose an e-money method and the code below is
+                  the account your payment goes to.
                 </p>
               )}
 
-              {/* GCash: a stand-in for the scan-to-pay code. Labelled as a mock
-                  so nobody tries to pay it. */}
-              {payment === 'gcash' && total > 0 && (
-                <div className="mt-2.5 flex items-center gap-3 rounded-[6px] border border-blush-300 bg-white p-2.5">
-                  <MockQr size={92} />
-                  <div className="min-w-0">
-                    <p className="text-[8px] uppercase tracking-[0.15em] text-ink-300">
-                      Scan to pay
-                    </p>
-                    <p className="num mt-1 text-[16px] font-medium leading-none text-ink-900">
-                      {peso(total)}
-                    </p>
-                    <p className="mt-1 text-[9px] text-ink-500">GCash · Saksesories PH</p>
-                    <p className="mt-1.5 text-[8px] uppercase tracking-[0.12em] text-warn-600">
-                      Mock QR · not a real payment
-                    </p>
-                  </div>
-                </div>
+              {/* The scan-to-pay panel. Whose code it is depends on who is
+                  ordering: staff collect into their own account, a customer
+                  pays whoever the order was credited to. No account for this
+                  method means no way to pay — say so instead of showing a
+                  code that leads nowhere. */}
+              {payment !== 'cash' && total > 0 && (
+                <>
+                  {payAccount && payCode ? (
+                    <div className="mt-2.5 rounded-[6px] border border-blush-300 bg-white p-2.5">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={payCode}
+                          alt={`${payAccount.label} QR code`}
+                          className="h-[92px] w-[92px] flex-none rounded-[3px] border border-blush-300 bg-white object-contain"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-[8px] uppercase tracking-[0.15em] text-ink-300">
+                            Scan to pay
+                          </p>
+                          <p className="num mt-1 text-[16px] font-medium leading-none text-ink-900">
+                            {peso(total)}
+                          </p>
+                          <p className="mt-1 truncate text-[9px] text-ink-500">
+                            {payAccount.label} · {payAccount.accountNumber}
+                          </p>
+                          <p className="mt-0.5 truncate text-[9.5px] font-medium text-ink-900">
+                            {payAccount.accountName}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-2 border-t border-blush-300/60 pt-1.5 text-[8.5px] leading-[1.5] text-ink-300">
+                        {isStaff
+                          ? 'Your own account — this payment comes to you.'
+                          : `Paying ${payee?.name ?? 'the team'}. Check that the name above is the one you are paying.`}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-2.5 rounded-[6px] border border-warn-600/40 bg-warn-100 p-2.5">
+                      <p className="text-[8px] uppercase tracking-[0.15em] text-warn-600">
+                        Unavailable
+                      </p>
+                      <p className="mt-1 text-[10px] leading-[1.55] text-ink-900">
+                        {isStaff
+                          ? `You have no ${methodLabel(payment)} code yet.`
+                          : payee
+                            ? `${payee.name} has no ${methodLabel(payment)} account yet.`
+                            : `Nobody on the team takes ${methodLabel(payment)} yet.`}
+                      </p>
+                      <p className="mt-1 text-[9px] leading-[1.5] text-ink-500">
+                        {isStaff ? (
+                          <>
+                            Add yours in{' '}
+                            <Link to="/portal/payment" className="text-crimson-600 underline">
+                              Payment QR
+                            </Link>
+                            , or collect another way and record the sale.
+                          </>
+                        ) : (
+                          'Choose another method, or pay cash at the shop.'
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -774,21 +878,29 @@ export default function Pos() {
 
             <button
               onClick={complete}
-              disabled={!cart.length || (isStaff && blocked) || missing.length > 0}
+              disabled={!cart.length || blocked || payBlocked || missing.length > 0}
               className={[
                 'mt-3.5 w-full justify-center rounded-pill px-[18px] py-3 text-[11.5px] font-medium text-white transition-colors',
                 blocked ? 'bg-ink-500' : done ? 'bg-ok-600' : 'bg-crimson-600 hover:bg-wine-800',
-                (!cart.length || missing.length > 0) && !blocked ? 'opacity-50' : '',
+                (!cart.length || missing.length > 0 || payBlocked) && !blocked ? 'opacity-50' : '',
               ].join(' ')}
             >
               {blocked
                 ? `Team quota reached · ${PLAN.team}/${PLAN.team}`
-                : done
-                  ? isStaff
-                    ? `Sale recorded — ${creditName} ✓`
-                    : 'Order sent ✓'
-                  : `${isStaff ? 'Complete sale' : 'Send order'} · ${peso(total)}`}
+                : payBlocked
+                  ? `No ${methodLabel(payment)} account to pay`
+                  : done
+                    ? isStaff
+                      ? `Sale recorded — ${creditName} ✓`
+                      : 'Order sent ✓'
+                    : `${isStaff ? 'Complete sale' : 'Send order'} · ${peso(total)}`}
             </button>
+
+            {payBlocked && (
+              <p className="mt-2 text-[9.5px] text-ink-300">
+                Pick another payment method, or pay cash at the shop.
+              </p>
+            )}
 
             {missing.length > 0 && cart.length > 0 && (
               <p className="mt-2 text-[9.5px] text-ink-300">

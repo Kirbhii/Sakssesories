@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react';
 import { peso, peso2 } from '@/lib/data';
 import { COST_TOTAL } from '@/lib/materials';
-import { PAY_LABEL, SALES, inRange, type PayMethod } from '@/lib/sales';
-
-const PAY_ORDER: PayMethod[] = ['cash', 'gcash'];
+import { allSales, inRange, payLabel, sortPay, useLedger } from '@/lib/sales';
 
 export default function Finance() {
   const [counted, setCounted] = useState('');
+  const ledger = useLedger();
 
-  const rows = useMemo(() => SALES.filter((s) => inRange(s.ago, 'month')), []);
+  const rows = useMemo(() => allSales().filter((s) => inRange(s.ago, 'month')), [ledger]);
 
   const revenue = rows.reduce((sum, r) => sum + r.cents, 0);
   const pieces = rows.reduce((sum, r) => sum + r.qty, 0);
@@ -16,16 +15,23 @@ export default function Finance() {
   const margin = revenue - cogs;
   const marginPct = revenue ? Math.round((margin / revenue) * 100) : 0;
 
-  const byPay = PAY_ORDER.map((pay) => {
-    const list = rows.filter((r) => r.pay === pay);
-    return {
-      pay,
-      cents: list.reduce((sum, r) => sum + r.cents, 0),
-      count: list.length,
-    };
-  });
+  // Whatever methods the month actually used, cash first. A member can publish
+  // an account for a method the app has never heard of, and the money still has
+  // to be accounted for.
+  const byPay = useMemo(() => {
+    const ids = [...new Set(rows.map((r) => r.pay))].sort(sortPay);
+    return ids.map((pay) => {
+      const list = rows.filter((r) => r.pay === pay);
+      return {
+        pay,
+        label: payLabel(pay),
+        cents: list.reduce((sum, r) => sum + r.cents, 0),
+        count: list.length,
+      };
+    });
+  }, [rows]);
 
-  const expectedCash = byPay[0].cents;
+  const expectedCash = byPay.find((p) => p.pay === 'cash')?.cents ?? 0;
   const countedCents = Math.round(Number(counted || 0) * 100);
   const difference = counted === '' ? null : countedCents - expectedCash;
 
@@ -69,13 +75,20 @@ export default function Finance() {
               <h2 className="text-[15px]">How they paid</h2>
             </div>
             <div className="px-4 pb-4 pt-1">
+              {byPay.length === 0 && (
+                <p className="py-8 text-center text-[10.5px] leading-[1.7] text-ink-300">
+                  Nothing came in this month yet.
+                  <br />
+                  A method shows up here the first time it is paid.
+                </p>
+              )}
               {byPay.map((p) => (
                 <div
                   key={p.pay}
                   className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-blush-300/60 py-3 last:border-0"
                 >
                   <div>
-                    <p className="text-[10.5px]">{PAY_LABEL[p.pay]}</p>
+                    <p className="text-[10.5px]">{p.label}</p>
                     <div className="mt-1.5 h-1 max-w-[280px] overflow-hidden rounded-full bg-blush-200">
                       <i
                         className="block h-full rounded-full bg-crimson-600"
@@ -133,7 +146,7 @@ export default function Finance() {
               )}
 
               <p className="mt-3 text-[9px] leading-[1.6] text-ink-300">
-                Cash sales only. GCash is settled by the provider, so it never touches the drawer.
+                Cash sales only. E-money is settled by the provider, so it never touches the drawer.
               </p>
             </div>
           </section>

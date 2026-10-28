@@ -165,6 +165,27 @@ export default function SiteHeader() {
                     Portal
                   </NavLink>
 
+                  <NavLink
+                    to="/portal/payment"
+                    role="menuitem"
+                    onClick={() => setMenu(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-[11px] text-ink-900 transition-colors hover:bg-blush-50 hover:text-crimson-600"
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.3"
+                      className="h-3 w-3 flex-none text-ink-300"
+                    >
+                      <path
+                        d="M2.5 2.5h4v4h-4zM9.5 2.5h4v4h-4zM2.5 9.5h4v4h-4zM9.8 9.8h1.2v1.2H9.8zM12 12h1.2v1.2H12z"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Payment QR
+                  </NavLink>
+
                   <button
                     onClick={leave}
                     role="menuitem"
@@ -272,6 +293,25 @@ export default function SiteHeader() {
                   />
                 </svg>
                 Portal
+              </NavLink>
+              <NavLink
+                to="/portal/payment"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 py-2.5 text-[12.5px] text-ink-900"
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  className="h-3 w-3 flex-none text-ink-300"
+                >
+                  <path
+                    d="M2.5 2.5h4v4h-4zM9.5 2.5h4v4h-4zM2.5 9.5h4v4h-4zM9.8 9.8h1.2v1.2H9.8zM12 12h1.2v1.2H12z"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Payment QR
               </NavLink>
               <button
                 onClick={leave}
