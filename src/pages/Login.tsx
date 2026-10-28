@@ -1,10 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MEMBERS, quotaOf } from '@/lib/quota';
-import { HOME_FOR, ROLE_LABEL, emailOf, useAuth } from '@/lib/auth';
-
-/** One account per role, so the whole permission story can be walked through. */
-const DEMO_IDS = ['ana', 'carlo', 'maria', 'gabriel'];
+import { MEMBERS } from '@/lib/quota';
+import { HOME_FOR, emailOf, useAuth } from '@/lib/auth';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -12,13 +10,6 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-
-  function enter(id: string) {
-    const member = MEMBERS.find((m) => m.id === id);
-    if (!member) return;
-    signIn(member.id);
-    navigate(HOME_FOR[member.role], { replace: true });
-  }
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -34,7 +25,8 @@ export default function Login() {
       return;
     }
     setError('');
-    enter(found.id);
+    signIn(found.id);
+    navigate(HOME_FOR[found.role], { replace: true });
   }
 
   return (
@@ -102,35 +94,16 @@ export default function Login() {
             Sign in
           </button>
 
-          <p className="mt-2.5 text-center text-[9px] leading-[1.6] text-ink-300">
-            Demo build — any password is accepted, and no email is sent.
-          </p>
+          {!isSupabaseConfigured && (
+            <p className="mt-2.5 text-center text-[9px] leading-[1.6] text-ink-300">
+              Not connected to the database yet — any password is accepted, and no email is sent.
+            </p>
+          )}
         </form>
 
-        <div className="mt-6">
-          <p className="text-center text-[8px] uppercase tracking-[0.17em] text-ink-300">
-            One account per role
-          </p>
-          <div className="mt-2.5 grid grid-cols-2 gap-2">
-            {DEMO_IDS.map((id) => {
-              const m = MEMBERS.find((x) => x.id === id);
-              if (!m) return null;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => enter(id)}
-                  className="rounded-[6px] border border-blush-300 bg-white px-3 py-2.5 text-left transition-colors hover:border-wine-800"
-                >
-                  <span className="block text-[10.5px] font-medium text-ink-900">{m.name}</span>
-                  <span className="mt-0.5 block text-[8px] uppercase tracking-[0.12em] text-ink-300">
-                    {ROLE_LABEL[m.role]} · {quotaOf(m.id)} pcs
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <p className="mt-5 text-center text-[9.5px] leading-[1.7] text-ink-300">
+          No account yet? Ask the GM to add you.
+        </p>
       </div>
     </div>
   );
