@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import {
   PRESET_METHODS,
+  accountOf,
   accountsOf,
+  approveAccount,
   methodLabel,
   readQrImage,
   removeAccount,
@@ -11,6 +13,7 @@ import {
   slugMethod,
   useAccounts,
 } from '@/lib/payaccounts';
+import { memberOf } from '@/lib/quota';
 
 /**
  * Where a member publishes the accounts they want to be paid into.
@@ -43,6 +46,12 @@ export default function PaymentQr() {
   const { member } = useAuth();
   const accounts = useAccounts();
   const mine = useMemo(() => (member ? accountsOf(member.id) : []), [accounts, member]);
+  // The GM sees every member's codes, because the one thing an upload cannot
+  // prove is whose account it is — somebody has to look.
+  const pending = useMemo(
+    () => accounts.filter((a) => !a.approved && a.memberId !== member?.id),
+    [accounts, member?.id],
+  );
 
   // Open on the first method they have not published yet — landing on
   // "replace your GCash code" when there is nothing to replace reads wrong.
@@ -62,6 +71,7 @@ export default function PaymentQr() {
   // Narrowed once, because the handlers below run later and TS will not carry
   // the guard across a function boundary.
   const me = member;
+  const isGm = me.role === 'gm';
 
   const resolved =
     method === OTHER
@@ -104,7 +114,7 @@ export default function PaymentQr() {
     }
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setFlash('');
 
@@ -126,7 +136,7 @@ export default function PaymentQr() {
     }
 
     setBusy(true);
-    const stored = saveAccount({
+    const stored = await saveAccount({
       memberId: me.id,
       method: resolved.id,
       label: resolved.label,
@@ -136,12 +146,30 @@ export default function PaymentQr() {
     });
     setBusy(false);
 
+    // Read back what actually landed: a fresh upload is not approved, so the
+    // page must not promise the customer can pay into it yet.
+    const row = accountOf(me.id, resolved.id);
+    const needsCheck = !!row && !row.approved;
+
     setFlash(
-      stored
-        ? `${resolved.label} saved. Customers can now pay you at this account.`
-        : `${resolved.label} saved for this visit, but your browser refused to keep it. Try a smaller image.`,
+      !stored
+        ? `That ${resolved.label} account did not save. Try a smaller picture, or try again.`
+        : needsCheck
+          ? `${resolved.label} saved. The GM has to check the code before a customer can pay into it.`
+          : `${resolved.label} saved. Customers can pay you at this account.`,
     );
     reset();
+  }
+
+  async function drop(id: string, label: string) {
+    const ok = await removeAccount(id);
+    setConfirmId(null);
+    setFlash(ok ? `${label} removed.` : `That ${label} account could not be removed. Try again.`);
+  }
+
+  async function approve(id: string) {
+    const ok = await approveAccount(id, me.id);
+    setFlash(ok ? 'Code checked. Customers can pay into it now.' : 'That code could not be approved.');
   }
 
   const nameMismatch =
@@ -167,6 +195,55 @@ export default function PaymentQr() {
       </div>
 
       <div className="mt-[18px] grid grid-cols-[1fr_340px] items-start gap-4 max-lg:grid-cols-1">
+        {/* ── The GM's queue ───────────────────────────────────────────── */}
+        {/* An upload proves nothing about whose account it is — the only proof
+            is a person comparing the name on the code with the member. Until
+            that happens the code is never shown to a customer. */}
+        {isGm && pending.length > 0 && (
+          <section className="rounded-[7px] border border-warn-600/40 bg-warn-100/50 p-[18px] lg:col-span-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[11px] font-medium text-ink-900">Waiting to be checked</span>
+              <span className="num text-[10px] text-ink-500">
+                {pending.length} {pending.length === 1 ? 'code' : 'codes'}
+              </span>
+            </div>
+            <p className="mt-1 max-w-[76ch] text-[10px] leading-[1.6] text-ink-500">
+              A code only reaches a customer once someone has confirmed it is really that member's
+              account. Compare the name on it with the member before approving.
+            </p>
+            <ul className="mt-3 divide-y divide-blush-300/50">
+              {pending.map((a) => (
+                <li key={a.id} className="flex items-center gap-3 py-2.5">
+                  <div className="h-[46px] w-[46px] flex-none overflow-hidden rounded-[4px] border border-blush-300 bg-white p-0.5">
+                    {a.qr ? (
+                      <img src={a.qr} alt="" className="h-full w-full object-contain" />
+                    ) : (
+                      <div className="grid h-full place-items-center text-[7px] text-ink-300">
+                        none
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[10.5px] font-medium text-ink-900">
+                      {memberOf(a.memberId)?.name ?? a.memberId} · {a.label}
+                    </p>
+                    <p className="truncate text-[9.5px] text-ink-500">
+                      {a.accountName} · {a.accountNumber}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void approve(a.id)}
+                    className="flex-none rounded-pill bg-ok-600 px-3 py-1.5 text-[10px] font-medium text-white transition-opacity hover:opacity-90"
+                  >
+                    Approve
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {/* ── What is already published ─────────────────────────────────── */}
         <section className="overflow-hidden rounded-[7px] border border-blush-300 bg-white">
           <div className="flex items-baseline justify-between gap-3 border-b border-blush-300/60 px-[18px] py-3.5">
@@ -212,6 +289,15 @@ export default function PaymentQr() {
                       <span className="num text-[11px] font-medium text-ink-900">
                         {a.accountNumber}
                       </span>
+                      {a.approved ? (
+                        <span className="rounded-pill bg-ok-100 px-2 py-[2px] text-[8px] uppercase tracking-[0.12em] text-ok-600">
+                          Live
+                        </span>
+                      ) : (
+                        <span className="rounded-pill bg-warn-100 px-2 py-[2px] text-[8px] uppercase tracking-[0.12em] text-warn-600">
+                          Not checked yet
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 truncate text-[10.5px] text-ink-500">{a.accountName}</p>
                     <p className="mt-0.5 text-[9px] text-ink-300">
@@ -221,10 +307,22 @@ export default function PaymentQr() {
                         day: 'numeric',
                         year: 'numeric',
                       })}
+                      {a.approved
+                        ? ' · customers can pay into it'
+                        : ' · the GM has to check it first'}
                     </p>
                   </div>
 
                   <div className="flex flex-none gap-1.5">
+                    {isGm && !a.approved && (
+                      <button
+                        type="button"
+                        onClick={() => void approve(a.id)}
+                        className="rounded-[4px] border border-ok-600 px-2 py-1 text-[9.5px] text-ok-600 transition-colors hover:bg-ok-600 hover:text-white"
+                      >
+                        Approve
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => loadForEdit(a.method)}
@@ -236,9 +334,7 @@ export default function PaymentQr() {
                       type="button"
                       onClick={() => {
                         if (confirmId === a.id) {
-                          removeAccount(a.id);
-                          setConfirmId(null);
-                          setFlash(`${a.label} removed.`);
+                          void drop(a.id, a.label);
                         } else {
                           setConfirmId(a.id);
                         }

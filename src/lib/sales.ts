@@ -1,9 +1,13 @@
 // ─── Sales records ──────────────────────────────────────────────────────────
-// The shop's ledger, in memory for now. Shared by My sales (one person's rows),
-// Finance (every row, grouped by payment method) and the Summary tab (rows
-// grouped by day, week or month) so the three screens can never disagree.
+// The shop's ledger. Shared by My sales (one person's rows), Finance (every
+// row, grouped by payment method) and the Summary tab (rows grouped by day,
+// week or month) so the three screens can never disagree.
 //
-// It is empty until the Supabase read is wired up — see `SALES` below.
+// The rows live in Supabase (`public.sales`). This module is the only thing
+// that knows that: screens keep reading `allSales()` / `salesOf()` and
+// re-rendering off `useLedger()`, exactly as they did when the ledger was a
+// localStorage array. `loadSales()` fills the cache, `recordSales()` writes a
+// finished order back.
 //
 // One sale is a LINE, not an order. A customer can buy two pieces in different
 // variants under one OR number, and that becomes two rows sharing `orNo` — the
@@ -12,6 +16,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { engravingFee } from './data';
+import { supabase, type SaleRow, type SaleStatus } from './supabase';
 
 export type Range = 'today' | 'week' | 'month' | 'all';
 /**
@@ -49,6 +54,8 @@ export interface Sale {
    */
   staffId: string;
   customer: string;
+  /** The customer's mobile, when the POS collected one. Null on older rows. */
+  mobile?: string | null;
   /** "Heart / Maroon" — split into shape + colour by shapeOf()/colourOf(). */
   variant: string;
   engraving: string;
@@ -60,6 +67,19 @@ export interface Sale {
   pay: PayMethod;
   /** Counter sale or customer's own order. See `Origin`. */
   origin: Origin;
+  /**
+   * Where the money stands.
+   *   paid     cash over the counter — the notes are in the drawer
+   *   pending  e-money. The customer says they paid; nobody has checked that
+   *            the exact amount landed in the account yet
+   *   void     cancelled, kept for the audit trail rather than deleted
+   *
+   * Without this a GCash order that was never actually sent looks identical to
+   * one that was, and the day's total is a guess.
+   */
+  status: SaleStatus;
+  /** The reference number the payer's app showed, once someone has checked it. */
+  payRef: string | null;
 }
 
 /**
@@ -86,12 +106,14 @@ export const BASE = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
 export const SALES: Sale[] = [];
 
 // ── The live ledger ─────────────────────────────────────────────────────────
-// Orders rung up in the POS are appended here and written to localStorage, so a
-// sale survives a reload until Supabase takes over. `SALES` above stays as the
-// seed for anything imported from elsewhere; `allSales()` is what every screen
-// reads, so the tables never disagree about what was sold.
+// `live` is the cache every screen reads. With a database it is filled by
+// `loadSales()` and appended to by `recordSales()`; without one it is the
+// localStorage array the app used before, so a fresh clone still works.
 
 const LEDGER_KEY = 'skph.ledger';
+
+/** No database configured → the local stand-in. Decided once, at load. */
+const ONLINE = !!supabase;
 
 function readLedger(): Sale[] {
   try {
@@ -108,11 +130,143 @@ function readLedger(): Sale[] {
   }
 }
 
-let live: Sale[] = readLedger();
+let live: Sale[] = ONLINE ? [] : readLedger();
 let version = 0;
 let cache: Sale[] = SALES;
 let cacheVersion = -1;
 const listeners = new Set<() => void>();
+
+function publish(): void {
+  version += 1;
+  listeners.forEach((fn) => fn());
+}
+
+// ── Mapping between the row and the app's shape ─────────────────────────────
+// The database stores a real date; the app filters on a "days ago" counter. The
+// conversion lives here so no screen had to be rewritten when the ledger moved
+// from memory to Postgres.
+
+const pad = (n: number): string => String(n).padStart(2, '0');
+
+/** A row's date, as the day counter the filters understand. */
+export function agoFromDate(iso: string): number {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  const then = new Date(y, m - 1, d);
+  return Math.round((BASE.getTime() - then.getTime()) / 86_400_000);
+}
+
+/** The day counter, as a 'YYYY-MM-DD' date in local time. */
+export function isoOf(ago: number): string {
+  const d = dateObj(ago);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** '14:05:00' → '2:05 PM', the way the summary sheet writes it. */
+function clockLabel(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return time;
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+}
+
+function rowToSale(r: SaleRow): Sale {
+  return {
+    id: r.id,
+    orNo: r.or_no,
+    ago: agoFromDate(r.sold_on),
+    time: clockLabel(r.sold_at),
+    staffId: r.staff_slug,
+    customer: r.customer,
+    mobile: r.customer_mobile,
+    variant: r.variant,
+    engraving: r.engraving || '—',
+    occupation: r.occupation || '—',
+    sex: r.sex === 'F' || r.sex === 'M' ? r.sex : '—',
+    location: r.location || '—',
+    qty: r.qty,
+    cents: r.cents,
+    pay: r.pay,
+    origin: r.origin === 'customer' ? 'customer' : 'counter',
+    status: r.status,
+    payRef: r.pay_ref,
+  };
+}
+
+/**
+ * A finished order, as a row. The time is taken from the clock at the moment
+ * of writing rather than parsed back out of the label — `recordSales` only ever
+ * appends sales that are happening right now. `created_at` is left to the
+ * database, which is the only clock that matters for an audit trail.
+ */
+function saleToRow(s: Sale): Omit<SaleRow, 'created_at'> {
+  const now = new Date();
+  return {
+    id: s.id,
+    or_no: s.orNo,
+    sold_on: isoOf(s.ago),
+    sold_at: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+    staff_slug: s.staffId,
+    customer: s.customer,
+    customer_mobile: s.mobile ?? null,
+    variant: s.variant,
+    engraving: s.engraving,
+    occupation: s.occupation,
+    sex: s.sex,
+    location: s.location,
+    qty: s.qty,
+    cents: s.cents,
+    pay: s.pay,
+    origin: s.origin,
+    status: s.status,
+    pay_ref: s.payRef,
+  };
+}
+
+const COLUMNS =
+  'id, or_no, sold_on, sold_at, staff_slug, customer, customer_mobile, variant, engraving, occupation, sex, location, qty, cents, pay, origin, status, pay_ref';
+
+/**
+ * Fill the cache from the database.
+ *
+ * The row level security policy is what decides how much comes back: a member
+ * gets their own book, Finance and the GM get the whole team, and a signed-out
+ * visitor gets nothing. So this one query is correct for every role, and the
+ * page never has to filter for privacy — it has already been done.
+ *
+ * Rows come back ordered so the lines of one OR number stay next to each other;
+ * `blockSpan` and `firstOfOrder` merge those cells and would break on a jumbled
+ * order.
+ *
+ * Only the newest read is allowed to land. On first load this runs once as a
+ * visitor (before the session is restored) and again as the member; without the
+ * counter the slower of the two would win, and a signed-in member could end up
+ * looking at an empty ledger.
+ */
+let generation = 0;
+
+export async function loadSales(): Promise<void> {
+  if (!supabase) return;
+  const mine = ++generation;
+
+  const { data, error } = await supabase
+    .from('sales')
+    .select(COLUMNS)
+    .order('sold_on', { ascending: false })
+    .order('or_no', { ascending: false })
+    .order('id', { ascending: true });
+
+  if (mine !== generation) return;
+
+  if (error) {
+    // A member with no rows is not an error — RLS simply returns an empty set.
+    console.error('[sales] could not read the ledger:', error.message);
+    return;
+  }
+
+  live = (data as SaleRow[]).map(rowToSale);
+  publish();
+}
 
 /**
  * Every row, newest first. The array identity only changes when the ledger
@@ -126,20 +280,43 @@ export function allSales(): Sale[] {
   return cache;
 }
 
-/** Append a finished order. Returns false if the browser refused to store it. */
-export function recordSales(rows: Sale[]): boolean {
+/**
+ * Append a finished order. Resolves `false` when the rows did not reach the
+ * database — the caller has to say so, because a sale the shop believes in and
+ * the server never received is worse than a visible error.
+ */
+export async function recordSales(rows: Sale[]): Promise<boolean> {
   if (!rows.length) return false;
-  const next = [...rows, ...live];
-  let stored = true;
-  try {
-    window.localStorage.setItem(LEDGER_KEY, JSON.stringify(next));
-  } catch {
-    stored = false; // private mode, or the shelf is full — keep it in memory
+
+  // Offline: keep the old localStorage behaviour so the POS still works.
+  if (!supabase) {
+    const next = [...rows, ...live];
+    let stored = true;
+    try {
+      window.localStorage.setItem(LEDGER_KEY, JSON.stringify(next));
+    } catch {
+      stored = false; // private mode, or the shelf is full — keep it in memory
+    }
+    live = next;
+    publish();
+    return stored;
   }
-  live = next;
-  version += 1;
-  listeners.forEach((fn) => fn());
-  return stored;
+
+  // Show it straight away — the person at the counter is waiting for a receipt.
+  live = [...rows, ...live];
+  publish();
+
+  const { error } = await supabase.from('sales').insert(rows.map(saleToRow));
+  if (error) {
+    // Take the rows back out. A phantom sale in the ledger would be counted in
+    // the day's total and never paid for.
+    const failed = new Set(rows.map((r) => r.id));
+    live = live.filter((s) => !failed.has(s.id));
+    publish();
+    console.error('[sales] could not record the sale:', error.message);
+    return false;
+  }
+  return true;
 }
 
 /** Wipe the locally recorded orders. Used by the dev reset, not by the shop. */
@@ -150,8 +327,7 @@ export function clearLedger(): void {
     /* nothing to clean up */
   }
   live = [];
-  version += 1;
-  listeners.forEach((fn) => fn());
+  publish();
 }
 
 export function subscribeLedger(fn: () => void): () => void {

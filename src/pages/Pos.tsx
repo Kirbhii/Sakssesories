@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import SiteHeader from '@/components/SiteHeader';
 import { useAuth } from '@/lib/auth';
@@ -12,7 +12,15 @@ import {
   peso,
   type ShapeId,
 } from '@/lib/data';
-import { accountOf, methodLabel, methodsInUse, payeeFor, useAccounts } from '@/lib/payaccounts';
+import {
+  accountOf,
+  findPayee,
+  methodLabel,
+  methodsInUse,
+  useAccounts,
+  type PayCode,
+  type Payee,
+} from '@/lib/payaccounts';
 import { PLAN, barWidth, creditRecipient, memberOf, quotaOf, roomOf } from '@/lib/quota';
 import { allSales, recordSales, type Sale } from '@/lib/sales';
 
@@ -136,6 +144,8 @@ export default function Pos() {
   const [payment, setPayment] = useState<PaymentMethod>(member ? 'cash' : 'gcash');
   const [cash, setCash] = useState('');
   const [done, setDone] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   // One OR number per order — all cart lines share it.
   const [orNo, setOrNo] = useState(nextOrNo);
 
@@ -177,25 +187,58 @@ export default function Pos() {
   const accounts = useAccounts();
   const methods = useMemo(() => methodsInUse(accounts), [accounts]);
 
+  // ── The customer's payee ──────────────────────────────────────────────────
+  // Staff already know whose account the money comes into — their own. A
+  // customer has nobody at the counter, so the account has to be asked for, and
+  // it is the database that answers: `payee_for(method)` hands back one
+  // approved account and nothing else. This page never picks the member, and
+  // never sees the rest of the table.
+  const [payee, setPayee] = useState<Payee | null>(null);
+  const [payeeBusy, setPayeeBusy] = useState(false);
+
+  useEffect(() => {
+    if (isStaff || payment === 'cash') {
+      setPayee(null);
+      setPayeeBusy(false);
+      return;
+    }
+    let alive = true;
+    setPayeeBusy(true);
+    void findPayee(payment).then((found) => {
+      if (!alive) return;
+      setPayee(found);
+      setPayeeBusy(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [isStaff, payment]);
+
   const recipient = member ? creditRecipient(member.id) : null;
-  const creditId = member ? recipient : payment === 'cash' ? null : payeeFor(payment);
+  // The order lands in the book of whoever receives the money, so that the QR
+  // the customer scans and the credit they generate are the same person.
+  const creditId = member ? recipient : (payee?.memberId ?? null);
   // The whole team being full is the only thing that stops an order outright;
   // a missing code is a payment problem, not a quota problem.
   const blocked = member ? recipient === null : creditRecipient(null) === null;
   const creditName = creditId ? memberOf(creditId)?.name : null;
 
-  const payeeId = member ? member.id : creditId;
-  const payee = payeeId ? memberOf(payeeId) : null;
-  const payAccount =
-    payeeId && payment !== 'cash' ? accountOf(payeeId, payment) : undefined;
-  // An account with no picture of the code cannot be scanned, so it counts as
-  // no account at all — a customer must never be shown a stand-in QR that pays
-  // nobody.
-  const payCode = payAccount?.qr ?? null;
+  // Whose code the customer scans. An account with no picture of the code
+  // cannot be scanned, so it counts as no account at all — a customer must
+  // never be shown a stand-in QR that pays nobody.
+  const shown: PayCode | undefined = member
+    ? payment !== 'cash'
+      ? accountOf(member.id, payment)
+      : undefined
+    : (payee ?? undefined);
+  const payCode = shown?.qr ?? null;
+  const payeeName = member ? member.name : payee?.memberName;
   // A customer cannot send money to an account that does not exist yet, so the
   // order is held. Staff get a nudge instead — they can always collect another
   // way, and the sale still has to be recorded.
   const payBlocked = !isStaff && payment !== 'cash' && total > 0 && !payCode;
+  // While the account is being looked up, "unavailable" would be a lie.
+  const payWaiting = !isStaff && payment !== 'cash' && total > 0 && payeeBusy;
 
   const missing: string[] = [];
   if (!details.name.trim()) missing.push('name');
@@ -266,9 +309,9 @@ export default function Pos() {
     );
   }
 
-  function complete() {
-    if (!cart.length || missing.length) return;
-    if (blocked || payBlocked || !creditId) return;
+  async function complete() {
+    if (!cart.length || missing.length || saving) return;
+    if (blocked || payBlocked || payWaiting || !creditId) return;
 
     // The order becomes rows in the ledger — one row per cart line, all sharing
     // this OR number, exactly the way the shop's summary sheet lists a
@@ -282,6 +325,7 @@ export default function Pos() {
       time: at.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }),
       staffId: creditId,
       customer: details.name.trim(),
+      mobile: details.mobile.trim(),
       variant: `${l.shapeName} / ${l.colourName}`,
       engraving: l.engraving || '—',
       occupation: '—',
@@ -291,8 +335,24 @@ export default function Pos() {
       cents: l.unit * l.qty,
       pay: payment,
       origin: isStaff ? 'counter' : 'customer',
+      // Cash over the counter is settled on the spot — the notes are in the
+      // drawer. E-money is not: nobody has matched the amount against the
+      // account yet, so it stays pending until someone does.
+      status: payment === 'cash' ? 'paid' : 'pending',
+      payRef: null,
     }));
-    recordSales(rows);
+
+    setSaving(true);
+    setSaveError('');
+    const stored = await recordSales(rows);
+    setSaving(false);
+
+    if (!stored) {
+      setSaveError(
+        'That order did not save. Nothing was recorded — check the connection and try again.',
+      );
+      return;
+    }
 
     setDone(true);
     window.setTimeout(() => {
@@ -749,12 +809,18 @@ export default function Pos() {
                   code that leads nowhere. */}
               {payment !== 'cash' && total > 0 && (
                 <>
-                  {payAccount && payCode ? (
+                  {payWaiting ? (
+                    <div className="mt-2.5 rounded-[6px] border border-blush-300 bg-blush-50 p-2.5">
+                      <p className="text-[9.5px] text-ink-500">
+                        Looking up who takes {methodLabel(payment)}…
+                      </p>
+                    </div>
+                  ) : shown && payCode ? (
                     <div className="mt-2.5 rounded-[6px] border border-blush-300 bg-white p-2.5">
                       <div className="flex items-center gap-3">
                         <img
                           src={payCode}
-                          alt={`${payAccount.label} QR code`}
+                          alt={`${shown.label} QR code`}
                           className="h-[92px] w-[92px] flex-none rounded-[3px] border border-blush-300 bg-white object-contain"
                         />
                         <div className="min-w-0">
@@ -765,17 +831,17 @@ export default function Pos() {
                             {peso(total)}
                           </p>
                           <p className="mt-1 truncate text-[9px] text-ink-500">
-                            {payAccount.label} · {payAccount.accountNumber}
+                            {shown.label} · {shown.accountNumber}
                           </p>
                           <p className="mt-0.5 truncate text-[9.5px] font-medium text-ink-900">
-                            {payAccount.accountName}
+                            {shown.accountName}
                           </p>
                         </div>
                       </div>
                       <p className="mt-2 border-t border-blush-300/60 pt-1.5 text-[8.5px] leading-[1.5] text-ink-300">
                         {isStaff
                           ? 'Your own account — this payment comes to you.'
-                          : `Paying ${payee?.name ?? 'the team'}. Check that the name above is the one you are paying.`}
+                          : `Paying ${payeeName ?? 'the team'}. Check that the name above is the one you are paying.`}
                       </p>
                     </div>
                   ) : (
@@ -880,23 +946,31 @@ export default function Pos() {
 
             <button
               onClick={complete}
-              disabled={!cart.length || blocked || payBlocked || missing.length > 0}
+              disabled={!cart.length || blocked || payBlocked || payWaiting || saving || missing.length > 0}
               className={[
                 'mt-3.5 w-full justify-center rounded-pill px-[18px] py-3 text-[11.5px] font-medium text-white transition-colors',
                 blocked ? 'bg-ink-500' : done ? 'bg-ok-600' : 'bg-crimson-600 hover:bg-wine-800',
-                (!cart.length || missing.length > 0 || payBlocked) && !blocked ? 'opacity-50' : '',
+                (!cart.length || missing.length > 0 || payBlocked || payWaiting) && !blocked ? 'opacity-50' : '',
               ].join(' ')}
             >
               {blocked
                 ? `Team quota reached · ${PLAN.team}/${PLAN.team}`
                 : payBlocked
                   ? `No ${methodLabel(payment)} account to pay`
-                  : done
-                    ? isStaff
-                      ? `Sale recorded — ${creditName} ✓`
-                      : 'Order sent ✓'
-                    : `${isStaff ? 'Complete sale' : 'Send order'} · ${peso(total)}`}
+                  : saving
+                    ? 'Saving…'
+                    : done
+                      ? isStaff
+                        ? `Sale recorded — ${creditName} ✓`
+                        : 'Order sent ✓'
+                      : `${isStaff ? 'Complete sale' : 'Send order'} · ${peso(total)}`}
             </button>
+
+            {saveError && (
+              <p className="mt-2 rounded-[5px] bg-bad-100 px-2.5 py-2 text-[9.5px] leading-[1.5] text-bad-600">
+                {saveError}
+              </p>
+            )}
 
             {payBlocked && (
               <p className="mt-2 text-[9.5px] text-ink-300">

@@ -43,10 +43,10 @@ export default function SiteHeader() {
         .join('')
     : '';
 
-  function leave() {
-    signOut();
+  async function leave() {
     setOpen(false);
     setMenu(false);
+    await signOut();
     navigate('/login');
   }
 

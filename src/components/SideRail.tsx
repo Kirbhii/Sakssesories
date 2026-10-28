@@ -58,8 +58,8 @@ export default function SideRail() {
 
   const rail = RAIL.filter((item) => !item.roles || (role !== null && item.roles.includes(role)));
 
-  function leave() {
-    signOut();
+  async function leave() {
+    await signOut();
     navigate('/login');
   }
 

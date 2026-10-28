@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MEMBERS } from '@/lib/quota';
-import { HOME_FOR, emailOf, useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 export default function Login() {
@@ -10,23 +9,21 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
-    const wanted = email.trim().toLowerCase();
-    const found = MEMBERS.find((m) => emailOf(m.name) === wanted);
-
-    if (!found) {
-      setError('No account uses that email.');
-      return;
-    }
-    if (!password) {
-      setError('Enter a password.');
-      return;
-    }
+    if (busy) return;
+    setBusy(true);
     setError('');
-    signIn(found.id);
-    navigate(HOME_FOR[found.role], { replace: true });
+    const problem = await signIn(email, password);
+    setBusy(false);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    // Every role lands on the shop; the portal is one click from the profile menu.
+    navigate('/', { replace: true });
   }
 
   return (
@@ -89,9 +86,10 @@ export default function Login() {
 
           <button
             type="submit"
-            className="mt-4 w-full rounded-pill bg-crimson-600 py-3 text-[11.5px] font-medium text-white transition-colors hover:bg-wine-800"
+            disabled={busy}
+            className="mt-4 w-full rounded-pill bg-crimson-600 py-3 text-[11.5px] font-medium text-white transition-colors hover:bg-wine-800 disabled:opacity-60"
           >
-            Sign in
+            {busy ? 'Signing in…' : 'Sign in'}
           </button>
 
           {!isSupabaseConfigured && (

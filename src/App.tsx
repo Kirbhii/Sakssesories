@@ -27,9 +27,19 @@ function ScrollToTop() {
   return null;
 }
 
+/** A quiet mark while the session is being checked — never a bounce to /login. */
+function Checking() {
+  return (
+    <div className="grid min-h-screen place-items-center bg-blush-50">
+      <img src="/img/logo-mark.png" alt="" width={640} height={531} className="h-12 w-auto opacity-40" />
+    </div>
+  );
+}
+
 /** Signed out? Nothing behind this door is visible, not even a stub. */
 function RequireAuth({ children }: { children: ReactNode }) {
-  const { member } = useAuth();
+  const { member, loading } = useAuth();
+  if (loading) return <Checking />;
   if (!member) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
