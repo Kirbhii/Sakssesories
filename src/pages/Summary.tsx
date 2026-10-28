@@ -9,6 +9,8 @@ import {
   colourOf,
   dateOf,
   dayLabel,
+  engravingCents,
+  engravingTotal,
   firstOfOrder,
   monthOf,
   orderCount,
@@ -119,6 +121,8 @@ export default function Summary() {
   const orders = useMemo(() => orderCount(rows), [rows]);
   const pieces = rows.reduce((n, s) => n + s.qty, 0);
   const total = rows.reduce((n, s) => n + s.cents, 0);
+  // The slice of that total that came from the extra letters, not the pieces.
+  const engraved = engravingTotal(rows);
 
   const selected = MEMBERS.find((m) => m.id === memberId);
   const unit = groupBy === 'day' ? 'day' : 'month';
@@ -156,13 +160,18 @@ export default function Summary() {
             <select
               value={memberId}
               onChange={(e) => setMemberId(e.target.value)}
-              className="max-w-[180px] bg-transparent text-[10.5px] text-ink-900 outline-none"
+              className="max-w-[230px] bg-transparent text-[10.5px] text-ink-900 outline-none"
             >
-              {MEMBERS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
+              {/* The record count rides along, so nobody has to guess whether a
+                  member with a blank table has no sales or was not fetched. */}
+              {MEMBERS.map((m) => {
+                const n = salesOf(m.id).length;
+                return (
+                  <option key={m.id} value={m.id}>
+                    {m.name} · {n === 0 ? 'no sales' : `${n} ${n === 1 ? 'sale' : 'sales'}`}
+                  </option>
+                );
+              })}
             </select>
           </label>
         )}
@@ -289,6 +298,11 @@ export default function Summary() {
                         </td>
                         <td className="whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px] text-[10.5px] tracking-[0.08em] text-ink-500">
                           {s.engraving}
+                          {engravingCents(s) > 0 && (
+                            <span className="num ml-1.5 text-[9.5px] font-medium tracking-normal text-ok-600">
+                              +{peso(engravingCents(s))}
+                            </span>
+                          )}
                         </td>
 
                         {first && (
@@ -349,8 +363,13 @@ export default function Summary() {
       {groups.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-[7px] border border-blush-300 bg-white px-4 py-3">
           <span className="text-[8px] uppercase tracking-[0.14em] text-ink-300">Grand total</span>
-          <span className="num text-[12px] font-medium text-ink-900">
-            {orders} {orders === 1 ? 'order' : 'orders'} · {pieces} pcs · {peso(total)}
+          <span className="flex flex-wrap items-baseline gap-2">
+            <span className="num text-[12px] font-medium text-ink-900">
+              {orders} {orders === 1 ? 'order' : 'orders'} · {pieces} pcs · {peso(total)}
+            </span>
+            {engraved > 0 && (
+              <span className="num text-[10px] text-ok-600">{peso(engraved)} from engraving</span>
+            )}
           </span>
         </div>
       )}
