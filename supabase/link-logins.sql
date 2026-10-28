@@ -35,15 +35,32 @@ order by can_log_in desc, slug;
 --
 --    An empty result here means every login has a home — you are done.
 --
---    A row here means that login uses a different email from the one seeded in
---    `profiles`. Either sign in with the address shown, or move the profile
---    onto it:
+--    A row here means that login uses a different address from the one seeded
+--    in `profiles`. Move the profile onto the login rather than the other way
+--    round — the person already knows their password, and this is the only
+--    thing that has to change:
 --
---      update public.profiles set email = 'the.address@you.used'
+--      update public.profiles
+--         set email   = 'the.address@they.use',
+--             auth_id = (select id from auth.users where email = 'the.address@they.use')
 --       where slug = 'gabriel';
 --
---    then run step 1 again.
+--    Then run steps 1 and 3 again to confirm the row is gone.
 select u.email as login_with_no_profile
 from auth.users u
 left join public.profiles p on lower(p.email) = lower(u.email)
 where p.slug is null;
+
+-- 4. A login with no profile at all — someone who is not one of the seventeen.
+--    They need a row before they can do anything; every policy above answers
+--    "no" until there is one. Fill in the real name, role and department:
+--
+--      insert into public.profiles (slug, email, full_name, role, department, auth_id)
+--      values (
+--        'jheff',
+--        'jheff@gmail.com',
+--        'Jheff Dela Cruz',
+--        'marketing',            -- marketing | production | finance | gm
+--        'marketing',            -- marketing | production | finance
+--        (select id from auth.users where email = 'jheff@gmail.com')
+--      );

@@ -245,9 +245,12 @@ create trigger on_auth_user_created
 -- ════════════════════════════════════════════════════════════════════════════
 -- The seventeen members
 -- ════════════════════════════════════════════════════════════════════════════
--- Emails follow firstname.lastname@saksesories.ph, which is what the sign-in
--- form already generates. Change an email here before creating the login if you
--- want a different one — the two must match exactly or the link never happens.
+-- `email` is the join key between a login and this row: it has to be exactly
+-- the address the person signs in with, or the link never happens. The
+-- @saksesories.ph addresses below are the intended ones; where someone already
+-- has a working login on a different address, the profile moves onto that
+-- address instead (see `link-logins.sql`). Gabriel and Maria are on Gmail
+-- because those are the logins that actually exist.
 insert into public.profiles (slug, email, full_name, role, department) values
   ('ana',     'ana.reyes@saksesories.ph',       'Ana Reyes',       'marketing',  'marketing'),
   ('bea',     'bea.lim@saksesories.ph',         'Bea Lim',         'marketing',  'marketing'),
@@ -263,8 +266,8 @@ insert into public.profiles (slug, email, full_name, role, department) values
   ('grace',   'grace.ong@saksesories.ph',       'Grace Ong',       'production', 'production'),
   ('sofia',   'sofia.cruz@saksesories.ph',      'Sofia Cruz',      'production', 'production'),
   ('miguel',  'miguel.torres@saksesories.ph',   'Miguel Torres',   'production', 'production'),
-  ('gabriel', 'gabriel.tan@saksesories.ph',     'Gabriel Tan',     'gm',         'finance'),
-  ('maria',   'maria.santos@saksesories.ph',    'Maria Santos',    'finance',    'finance'),
+  ('gabriel', 'gm@gmail.com',                   'Gabriel Tan',     'gm',         'finance'),
+  ('maria',   'finance@gmail.com',              'Maria Santos',    'finance',    'finance'),
   ('anna',    'anna.sy@saksesories.ph',         'Anna Sy',         'finance',    'finance')
 on conflict (slug) do nothing;
 
