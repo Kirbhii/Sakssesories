@@ -29,6 +29,7 @@ const STAFF: MemberRole[] = ['marketing', 'production', 'finance', 'gm'];
 // back out to the shop.
 const RAIL: RailItem[] = [
   { label: 'My sales', icon: 'M3.4 2h9.2v12l-2.3-1.5L8 14l-2.3-1.5L3.4 14V2Z', to: '/portal', end: true, roles: STAFF },
+  { label: 'Summary', icon: 'M2.6 3.2h10.8M2.6 6.5h10.8M2.6 9.8h10.8M2.6 13.1h6.4', to: '/portal/summary', roles: STAFF },
   { label: 'Inventory', icon: 'M8 1.8 13.6 4.5v7L8 14.2 2.4 11.5v-7L8 1.8Z', to: '/portal/inventory', roles: STAFF },
   {
     label: 'Finance',

@@ -5,6 +5,7 @@ import Login from '@/pages/Login';
 import Pos from '@/pages/Pos';
 import Portal from '@/pages/Portal';
 import MySales from '@/pages/MySales';
+import Summary from '@/pages/Summary';
 import Inventory from '@/pages/Inventory';
 import Finance from '@/pages/Finance';
 import QuotaSettings from '@/pages/QuotaSettings';
@@ -74,6 +75,8 @@ export default function App() {
           }
         >
           <Route index element={<MySales />} />
+          {/* The overall summary is open to every staff member, so no RequireRole. */}
+          <Route path="summary" element={<Summary />} />
           <Route path="inventory" element={<Inventory />} />
           <Route
             path="finance"
