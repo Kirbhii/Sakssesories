@@ -24,11 +24,10 @@ interface RailItem {
 
 const STAFF: MemberRole[] = ['marketing', 'production', 'finance', 'gm'];
 
-// Every tab lives inside the portal except Point of sale, which is the public
-// selling page. Staff still need it, so it stays one tap away; the logo (top of
-// the rail) is the door back out to the shop.
+// Every rail tab lives inside the portal. The POS is a public page on the top
+// navbar, so it is not repeated here; the logo (top of the rail) is the door
+// back out to the shop.
 const RAIL: RailItem[] = [
-  { label: 'Point of sale', icon: 'M2 2h2l1.6 7.4h7.1L14 4.2H4.4', to: '/pos', roles: STAFF },
   { label: 'My sales', icon: 'M3.4 2h9.2v12l-2.3-1.5L8 14l-2.3-1.5L3.4 14V2Z', to: '/portal', end: true, roles: STAFF },
   { label: 'Inventory', icon: 'M8 1.8 13.6 4.5v7L8 14.2 2.4 11.5v-7L8 1.8Z', to: '/portal/inventory', roles: STAFF },
   {
