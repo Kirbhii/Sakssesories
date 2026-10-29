@@ -15,6 +15,7 @@ import {
   orderCount,
   payLabel,
   salesOf,
+  setRemitted,
   shapeOf,
   sortPay,
   useLedger,
@@ -49,6 +50,7 @@ const COLS: { label: string; align?: 'right' }[] = [
   { label: 'Date' },
   { label: 'Customer' },
   { label: 'OR No.' },
+  { label: 'Remitted' },
   { label: 'Shape' },
   { label: 'Color' },
   { label: 'Engraving' },
@@ -90,16 +92,85 @@ function Segmented<T extends string>({
   );
 }
 
+/**
+ * The per-order "Remitted" control. Finance and the GM get a button that flips
+ * the flag; everyone else gets a read-only pill so the whole team can see which
+ * orders have been turned in without being able to change it. The state lives on
+ * the order (OR number), not the line, so this reads it off any line of the
+ * order and `onToggle` flips the whole order at once.
+ */
+function RemitCell({
+  value,
+  canEdit,
+  onToggle,
+}: {
+  value: boolean;
+  canEdit: boolean;
+  onToggle: () => void;
+}) {
+  if (!canEdit) {
+    return (
+      <span
+        className={[
+          'inline-flex items-center gap-1 rounded-pill px-1.5 py-[1px] text-[7px] uppercase tracking-[0.1em]',
+          value ? 'bg-ok-100 text-ok-600' : 'bg-blush-100 text-ink-400',
+        ].join(' ')}
+      >
+        <i
+          className={[
+            'h-[4px] w-[4px] flex-none rounded-full',
+            value ? 'bg-ok-600' : 'bg-ink-300',
+          ].join(' ')}
+        />
+        {value ? 'Remitted' : 'Not yet'}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={value}
+      className={[
+        'inline-flex items-center gap-1.5 rounded-pill border px-2 py-[3px] text-[8px] uppercase tracking-[0.08em] transition-colors',
+        value
+          ? 'border-ok-100 bg-ok-100 text-ok-600'
+          : 'border-blush-300 bg-white text-ink-500 hover:border-wine-800 hover:text-wine-800',
+      ].join(' ')}
+    >
+      <i
+        className={[
+          'h-[6px] w-[6px] flex-none rounded-[2px]',
+          value ? 'bg-ok-600' : 'border border-ink-300',
+        ].join(' ')}
+      />
+      {value ? 'Remitted' : 'Mark remitted'}
+    </button>
+  );
+}
+
 export default function Summary() {
   const { member } = useAuth();
+  // Only Finance and the GM may mark an order "remitted" — everyone else can see
+  // the state but not change it (the database enforces the same via the
+  // `sales_money_update` policy).
+  const canRemit = member?.role === 'finance' || member?.role === 'gm';
 
   const [scope, setScope] = useState<Scope>('member');
   const [memberId, setMemberId] = useState(member?.id ?? MEMBERS[0].id);
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [pay, setPay] = useState<PayFilter>('all');
+  // Surfaced if a remittance write fails — the flag rolls back, so tell the user.
+  const [remitError, setRemitError] = useState<string | null>(null);
   // Re-render when an order is recorded, and keep the version in the deps of
   // every memo below so the sheet never shows a stale set of rows.
   const ledger = useLedger();
+
+  async function toggleRemit(orNo: string, value: boolean): Promise<void> {
+    setRemitError(null);
+    const ok = await setRemitted(orNo, value);
+    if (!ok) setRemitError('Could not save the remittance — check your connection and try again.');
+  }
 
   // The scoped lines, before the payment filter — the filter chips are built
   // from these, so picking a method cannot make the other chips disappear.
@@ -225,6 +296,12 @@ export default function Summary() {
         />
       </div>
 
+      {remitError && (
+        <div className="mt-3 rounded-[7px] border border-bad-600/30 bg-bad-100 px-3.5 py-2 text-[10px] text-bad-600">
+          {remitError}
+        </div>
+      )}
+
       {/* ── Totals ───────────────────────────────────────────────────────── */}
       <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-1">
         {[
@@ -328,6 +405,16 @@ export default function Summary() {
                             >
                               {s.orNo}
                             </td>
+                            <td
+                              rowSpan={span}
+                              className="whitespace-nowrap border-b border-blush-300/50 px-3 py-[8px]"
+                            >
+                              <RemitCell
+                                value={s.remitted}
+                                canEdit={canRemit}
+                                onToggle={() => toggleRemit(s.orNo, !s.remitted)}
+                              />
+                            </td>
                           </>
                         )}
 
@@ -381,7 +468,7 @@ export default function Summary() {
 
                   <tr className="bg-blush-50">
                     <td
-                      colSpan={10}
+                      colSpan={11}
                       className="px-3 py-2 text-right text-[8px] uppercase tracking-[0.14em] text-ink-300"
                     >
                       Subtotal · {oc} {oc === 1 ? 'order' : 'orders'}

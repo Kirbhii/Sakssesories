@@ -84,6 +84,9 @@ create table if not exists public.sales (
   origin          text not null check (origin in ('counter', 'customer')),
   status          text not null default 'pending' check (status in ('pending', 'paid', 'void')),
   pay_ref         text,
+  -- Finance marks an order "remitted" once its money has been turned in. Off by
+  -- default; only Finance and the GM may flip it (policy sales_money_update).
+  remitted        boolean not null default false,
   created_at      timestamptz not null default now()
 );
 

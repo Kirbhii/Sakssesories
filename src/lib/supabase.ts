@@ -77,6 +77,11 @@ export interface SaleRow {
   origin: Origin;
   status: SaleStatus;
   pay_ref: string | null;
+  /**
+   * Finance flips this once the money for an order has been turned in. Off by
+   * default; only Finance and the GM may write it (policy `sales_money_update`).
+   */
+  remitted: boolean;
   created_at: string;
 }
 

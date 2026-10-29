@@ -119,10 +119,19 @@ export default function Finance() {
   // A void sale never happened, so it leaves both the count and the money.
   const live = useMemo(() => rows.filter((s) => s.status !== 'void'), [rows]);
 
+  // "Units sold" and "Remittance" follow the finance team's definition: they
+  // count only money that has actually been turned in — the `remitted` flag
+  // Finance sets from the Summary tab. Net sales, the margins, profit and the
+  // cash in the drawer still measure everything the shop earned, voids excluded.
+  const remittedRows = useMemo(() => live.filter((s) => s.remitted), [live]);
+
   const gross = rows.reduce((n, s) => n + s.cents, 0); // total sales (gross)
   const revenue = live.reduce((n, s) => n + s.cents, 0); // net of voids
-  const pieces = live.reduce((n, s) => n + s.qty, 0); // units sold
-  const cogs = pieces * assumptions.unitCostCents;
+  const earnedPieces = live.reduce((n, s) => n + s.qty, 0); // all pieces earned
+  const pieces = remittedRows.reduce((n, s) => n + s.qty, 0); // units sold = remitted
+  // COGS is the cost of every piece the shop actually earned, not just the ones
+  // already remitted — the margin is over the whole period's trade.
+  const cogs = earnedPieces * assumptions.unitCostCents;
   const grossMargin = revenue - cogs;
   const marginPct = revenue ? Math.round((grossMargin / revenue) * 100) : 0;
   const expenseTotal = assumptions.expenses.reduce((n, e) => n + e.cents, 0);
@@ -135,7 +144,9 @@ export default function Finance() {
   const cashCents = live
     .filter((s) => s.pay === 'cash')
     .reduce((n, s) => n + s.cents, 0); // total cash in the drawer
-  const remittance = Math.round((revenue * assumptions.remitRate) / 100);
+  // Remittance = the share of remitted collections the sellers turn in.
+  const remittedNet = remittedRows.reduce((n, s) => n + s.cents, 0);
+  const remittance = Math.round((remittedNet * assumptions.remitRate) / 100);
 
   // Methods used in the period, cash first.
   const byPay = useMemo(() => {
@@ -167,7 +178,7 @@ export default function Finance() {
     {
       label: 'Units sold',
       value: `${pieces} pcs`,
-      note: 'Pieces sold & remitted, voids excluded',
+      note: 'Remitted pieces only — voids excluded. Toggle in Summary.',
     },
     {
       label: 'Total sales',
@@ -182,13 +193,13 @@ export default function Finance() {
     {
       label: 'Gross margin',
       value: peso(grossMargin),
-      note: `Gross profit margin ${marginPct}% · ${peso2(assumptions.unitCostCents)}/pc × ${pieces} pcs`,
+      note: `Gross profit margin ${marginPct}% · ${peso2(assumptions.unitCostCents)}/pc × ${earnedPieces} pcs`,
       assumption: true,
     },
     {
       label: 'Remittance',
       value: peso(remittance),
-      note: `${assumptions.remitRate}% of net sales turned in`,
+      note: `${assumptions.remitRate}% of remitted sales turned in`,
       assumption: true,
     },
     {
@@ -258,7 +269,7 @@ export default function Finance() {
       {/* Reminder that some figures are placeholders until the client answers. */}
       <div className="mt-3 flex items-center gap-2 rounded-[7px] border border-blush-300 bg-blush-50 px-3.5 py-2 text-[10px] text-ink-500">
         <i className="h-[5px] w-[5px] flex-none rounded-full bg-crimson-600" />
-        Three figures wear an “assumption” tag — they use the numbers set in the
+        Four figures wear an “assumption” tag — they use the numbers set in the
         panel below. Confirm those with the client, then type them in.
       </div>
 

@@ -340,6 +340,9 @@ export default function Pos() {
       // account yet, so it stays pending until someone does.
       status: payment === 'cash' ? 'paid' : 'pending',
       payRef: null,
+      // A sale is never remitted the moment it is rung up — Finance turns that
+      // on once the money is actually counted in.
+      remitted: false,
     }));
 
     setSaving(true);

@@ -80,6 +80,12 @@ export interface Sale {
   status: SaleStatus;
   /** The reference number the payer's app showed, once someone has checked it. */
   payRef: string | null;
+  /**
+   * Set by Finance once this order's money has actually been turned in. Off by
+   * default. It lives on every line of an order, but is always flipped together
+   * (see `setRemitted`) so an order is "remitted" as a whole, never line by line.
+   */
+  remitted: boolean;
 }
 
 /**
@@ -190,6 +196,9 @@ function rowToSale(r: SaleRow): Sale {
     origin: r.origin === 'customer' ? 'customer' : 'counter',
     status: r.status,
     payRef: r.pay_ref,
+    // Older rows (or a database where the migration has not run yet) have no
+    // `remitted` value — treat their absence as "not yet remitted".
+    remitted: r.remitted ?? false,
   };
 }
 
@@ -199,7 +208,13 @@ function rowToSale(r: SaleRow): Sale {
  * appends sales that are happening right now. `created_at` is left to the
  * database, which is the only clock that matters for an audit trail.
  */
-function saleToRow(s: Sale): Omit<SaleRow, 'created_at'> {
+/**
+ * A finished order, as a row. `remitted` is deliberately left off the insert: a
+ * freshly rung-up sale is never "remitted", and letting the database default
+ * (`false`) apply means inserts still succeed on a database where the migration
+ * has not been run yet. `created_at` is likewise left to Postgres.
+ */
+function saleToRow(s: Sale): Omit<SaleRow, 'created_at' | 'remitted'> {
   const now = new Date();
   return {
     id: s.id,
@@ -223,7 +238,15 @@ function saleToRow(s: Sale): Omit<SaleRow, 'created_at'> {
   };
 }
 
+// `remitted` is the newest column. A database that has not had the
+// `add-remitted.sql` migration run yet still has every other column, so we keep
+// two lists: the full one (with `remitted`) and a base fallback (without it).
+// `loadSales` tries the full list first and quietly drops back if the column is
+// missing, so the app keeps working until the migration is applied — every row
+// is then just treated as "not yet remitted".
 const COLUMNS =
+  'id, or_no, sold_on, sold_at, staff_slug, customer, customer_mobile, variant, engraving, occupation, sex, location, qty, cents, pay, origin, status, pay_ref, remitted';
+const COLUMNS_BASE =
   'id, or_no, sold_on, sold_at, staff_slug, customer, customer_mobile, variant, engraving, occupation, sex, location, qty, cents, pay, origin, status, pay_ref';
 
 /**
@@ -249,22 +272,32 @@ export async function loadSales(): Promise<void> {
   if (!supabase) return;
   const mine = ++generation;
 
-  const { data, error } = await supabase
-    .from('sales')
-    .select(COLUMNS)
-    .order('sold_on', { ascending: false })
-    .order('or_no', { ascending: false })
-    .order('id', { ascending: true });
+  const read = async (columns: string): Promise<SaleRow[] | null> => {
+    const { data, error } = await supabase!
+      .from('sales')
+      .select(columns)
+      .order('sold_on', { ascending: false })
+      .order('or_no', { ascending: false })
+      .order('id', { ascending: true });
+    if (error) return null;
+    return (data as unknown) as SaleRow[];
+  };
+
+  // Try the full column list; if the `remitted` migration has not been applied
+  // the query fails and we retry without that one column. Rows read this way
+  // just show up as "not yet remitted".
+  let data = await read(COLUMNS);
+  if (data === null) data = await read(COLUMNS_BASE);
 
   if (mine !== generation) return;
-
-  if (error) {
+  if (data === null) {
     // A member with no rows is not an error — RLS simply returns an empty set.
-    console.error('[sales] could not read the ledger:', error.message);
+    // Getting here means even the fallback failed, so log it.
+    console.error('[sales] could not read the ledger (both column sets failed)');
     return;
   }
 
-  live = (data as SaleRow[]).map(rowToSale);
+  live = data.map(rowToSale);
   publish();
 }
 
@@ -314,6 +347,39 @@ export async function recordSales(rows: Sale[]): Promise<boolean> {
     live = live.filter((s) => !failed.has(s.id));
     publish();
     console.error('[sales] could not record the sale:', error.message);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Mark every line of an order "remitted" (or un-remit it). Finance and the GM
+ * flip this once the order's money has been turned in.
+ *
+ * The order is keyed by OR number, never by row id, because an order is several
+ * lines and all of them must turn green together — flipping one line of a
+ * two-piece order would leave the summary half-remitted and the counts wrong.
+ *
+ * Resolves `false` when the write did not reach the database, so the caller can
+ * surface it rather than leave the UI showing a state the server rejected.
+ */
+export async function setRemitted(orNo: string, value: boolean): Promise<boolean> {
+  // Update the local cache first so the checkbox responds instantly.
+  live = live.map((s) => (s.orNo === orNo ? { ...s, remitted: value } : s));
+  publish();
+
+  if (!supabase) return true; // offline stand-in: the cache is the source of truth
+
+  const { error } = await supabase
+    .from('sales')
+    .update({ remitted: value })
+    .eq('or_no', orNo);
+
+  if (error) {
+    // Roll the cache back so it never disagrees with the server.
+    live = live.map((s) => (s.orNo === orNo ? { ...s, remitted: !value } : s));
+    publish();
+    console.error('[sales] could not mark the order remitted:', error.message);
     return false;
   }
   return true;
