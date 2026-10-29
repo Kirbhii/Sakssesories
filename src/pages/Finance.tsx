@@ -13,12 +13,15 @@ import {
 // ─── Finance dashboard ───────────────────────────────────────────────────────
 // The money side of the shop, for Finance and the GM only (the route gates it).
 //
-// Seven figures the client asked for, in one place:
-//   units sold · total sales · revenue · gross margin · remittance · net profit
-//   · total cash
+// The figures Finance asked for, in one place:
+//   units sold · total sales · net sales · gross profit margin · remittance ·
+//   net profit · net profit margin · ROI · total cash
 //
-// Three of them (gross margin, remittance, net profit) need numbers the app
-// does not have yet — a unit cost, a remit rule, and operating expenses. Those
+// "Net sales" = total sales less voids (the base every margin is divided by).
+// Gross profit margin = gross profit ÷ net sales. Net profit margin = net profit
+// ÷ net sales. ROI = net profit ÷ initial investment. The last three of those
+// (gross margin, net profit, ROI) need numbers the app does not have yet — a
+// unit cost, a remit rule, operating expenses and the initial investment. Those
 // live in the "Assumptions" panel below and are saved in the browser, so the
 // figures update the moment Finance types a real number in. Every card that
 // depends on an assumption wears a small "assumption" tag, so it is obvious
@@ -33,18 +36,21 @@ interface Expense {
 }
 
 interface Assumptions {
-  /** Cost to make one piece, in centavos. Mock default until the client confirms. */
+  /** Cost to make one piece, in centavos. Mock default until Finance confirms. */
   unitCostCents: number;
   /** Share of collections the sellers turn in to the company, in percent. */
   remitRate: number;
   /** Operating expenses subtracted to reach net profit (rent, wages, …). */
   expenses: Expense[];
+  /** Money put in at the start — the denominator for ROI. */
+  initialInvestmentCents: number;
 }
 
 const DEFAULTS: Assumptions = {
   unitCostCents: COST_TOTAL, // ₱49.50 per piece
   remitRate: 100, // sellers hand everything over by default
   expenses: [],
+  initialInvestmentCents: 0, // enter the real amount to get a ROI
 };
 
 function loadAssumptions(): Assumptions {
@@ -100,6 +106,9 @@ export default function Finance() {
   function removeExpense(id: string): void {
     patch({ expenses: assumptions.expenses.filter((e) => e.id !== id) });
   }
+  function setInitialInvestment(pesos: string): void {
+    patch({ initialInvestmentCents: Math.round(Number(pesos || 0) * 100) });
+  }
 
   // ── The numbers, scoped to the chosen period ──────────────────────────────
   const rows = useMemo(
@@ -118,6 +127,11 @@ export default function Finance() {
   const marginPct = revenue ? Math.round((grossMargin / revenue) * 100) : 0;
   const expenseTotal = assumptions.expenses.reduce((n, e) => n + e.cents, 0);
   const netProfit = grossMargin - expenseTotal;
+  const netProfitMarginPct = revenue ? Math.round((netProfit / revenue) * 100) : 0;
+  // ROI = net profit ÷ initial investment. Undefined (0) until Finance enters it.
+  const roiPct = assumptions.initialInvestmentCents
+    ? Math.round((netProfit / assumptions.initialInvestmentCents) * 100)
+    : 0;
   const cashCents = live
     .filter((s) => s.pay === 'cash')
     .reduce((n, s) => n + s.cents, 0); // total cash in the drawer
@@ -153,7 +167,7 @@ export default function Finance() {
     {
       label: 'Units sold',
       value: `${pieces} pcs`,
-      note: 'Pieces rung up, voids excluded',
+      note: 'Pieces sold & remitted, voids excluded',
     },
     {
       label: 'Total sales',
@@ -161,26 +175,32 @@ export default function Finance() {
       note: 'Gross of every sale recorded',
     },
     {
-      label: 'Revenue',
+      label: 'Net sales',
       value: peso(revenue),
-      note: 'Total sales less voids',
+      note: 'Total sales less voids — the base for every margin',
     },
     {
       label: 'Gross margin',
       value: peso(grossMargin),
-      note: `${marginPct}% of revenue · ${peso2(assumptions.unitCostCents)}/pc × ${pieces} pcs`,
+      note: `Gross profit margin ${marginPct}% · ${peso2(assumptions.unitCostCents)}/pc × ${pieces} pcs`,
       assumption: true,
     },
     {
       label: 'Remittance',
       value: peso(remittance),
-      note: `${assumptions.remitRate}% of revenue turned in`,
+      note: `${assumptions.remitRate}% of net sales turned in`,
       assumption: true,
     },
     {
       label: 'Net profit',
       value: peso(netProfit),
-      note: `After ${peso(expenseTotal)} expenses`,
+      note: `Net profit margin ${netProfitMarginPct}% · after ${peso(expenseTotal)} expenses`,
+      assumption: true,
+    },
+    {
+      label: 'ROI',
+      value: roiPct ? `${roiPct}%` : '—',
+      note: 'Net profit ÷ initial investment',
       assumption: true,
     },
     {
@@ -278,7 +298,7 @@ export default function Finance() {
         </button>
 
         {showAssumptions && (
-          <div className="grid gap-5 px-4 pb-5 pt-4 md:grid-cols-3">
+          <div className="grid gap-5 px-4 pb-5 pt-4 md:grid-cols-2">
             {/* Unit cost → gross margin */}
             <div>
               <label className="block">
@@ -318,6 +338,27 @@ export default function Finance() {
               <p className="mt-2 text-[9px] leading-[1.6] text-ink-300">
                 Drives <b>remittance</b>. 100% = sellers hand everything over. If
                 they keep a commission, put the share turned in here.
+              </p>
+            </div>
+
+            {/* Initial investment → ROI */}
+            <div>
+              <label className="block">
+                <span className="mb-1 block text-[8px] uppercase tracking-[0.15em] text-ink-300">
+                  Initial investment (₱)
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  value={(assumptions.initialInvestmentCents / 100).toFixed(2)}
+                  onChange={(e) => setInitialInvestment(e.target.value)}
+                  className="w-full rounded-[5px] border border-blush-300 px-2.5 py-[7px] text-[11px] outline-none focus:border-crimson-600"
+                />
+              </label>
+              <p className="mt-2 text-[9px] leading-[1.6] text-ink-300">
+                Drives <b>ROI</b>. The money put in at the start — net profit is
+                divided by this. Leave 0 (or blank) and ROI shows “—”.
               </p>
             </div>
 
