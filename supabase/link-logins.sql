@@ -51,16 +51,21 @@ from auth.users u
 left join public.profiles p on lower(p.email) = lower(u.email)
 where p.slug is null;
 
--- 4. A login with no profile at all — someone who is not one of the seventeen.
+-- 4. A login with no profile at all — someone who is not on the roster.
 --    They need a row before they can do anything; every policy above answers
 --    "no" until there is one. Fill in the real name, role and department:
 --
 --      insert into public.profiles (slug, email, full_name, role, department, auth_id)
 --      values (
---        'jheff',
---        'jheff@gmail.com',
---        'Jheff Dela Cruz',
+--        'newperson',
+--        'newperson@gmail.com',
+--        'Full Name',
 --        'marketing',            -- marketing | production | finance | gm
 --        'marketing',            -- marketing | production | finance
---        (select id from auth.users where email = 'jheff@gmail.com')
+--        (select id from auth.users where email = 'newperson@gmail.com')
 --      );
+--
+--    Adding a row here is only half the job: the app keeps its own roster in
+--    `src/lib/quota.ts`, and a member missing from there reads as "already at
+--    quota", so their sales get credited to a teammate. Add them to `MEMBERS`
+--    too, or their quota share is zero.

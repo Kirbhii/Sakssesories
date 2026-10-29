@@ -68,6 +68,10 @@ export const MEMBERS: Member[] = [
   { id: 'rica', name: 'Rica Flores', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
   { id: 'paolo', name: 'Paolo Garcia', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
   { id: 'noel', name: 'Noel Ramos', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  // Added after the first build: a real login (`jheff@gmail.com`) that had no
+  // row here. Without it `quotaOf` returns 0, which reads as "already full" and
+  // the POS would quietly credit every sale he rings up to somebody else.
+  { id: 'jheff', name: 'Jheff', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
   { id: 'carlo', name: 'Carlo Reyes', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
   { id: 'dennis', name: 'Dennis Yu', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
   { id: 'mark', name: 'Mark Bautista', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },

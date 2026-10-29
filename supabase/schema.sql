@@ -243,7 +243,7 @@ create trigger on_auth_user_created
   for each row execute function public.link_profile();
 
 -- ════════════════════════════════════════════════════════════════════════════
--- The seventeen members
+-- The eighteen members
 -- ════════════════════════════════════════════════════════════════════════════
 -- `email` is the join key between a login and this row: it has to be exactly
 -- the address the person signs in with, or the link never happens. The
@@ -258,6 +258,7 @@ insert into public.profiles (slug, email, full_name, role, department) values
   ('rica',    'rica.flores@saksesories.ph',     'Rica Flores',     'marketing',  'marketing'),
   ('paolo',   'paolo.garcia@saksesories.ph',    'Paolo Garcia',    'marketing',  'marketing'),
   ('noel',    'noel.ramos@saksesories.ph',      'Noel Ramos',      'marketing',  'marketing'),
+  ('jheff',   'jheff@gmail.com',                'Jheff',           'marketing',  'marketing'),
   ('carlo',   'carlo.reyes@saksesories.ph',     'Carlo Reyes',     'production', 'production'),
   ('dennis',  'dennis.yu@saksesories.ph',       'Dennis Yu',       'production', 'production'),
   ('mark',    'mark.bautista@saksesories.ph',   'Mark Bautista',   'production', 'production'),
