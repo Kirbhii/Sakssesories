@@ -94,18 +94,27 @@ create index if not exists sales_staff_idx on public.sales (staff_slug, sold_on 
 create index if not exists sales_or_idx on public.sales (or_no);
 
 -- ─── Production ─────────────────────────────────────────────────────────────
--- The manual production log that replaced the old inventory screen: Production
--- types how many pieces of each variant they finished on a given day. One row
--- per (day, variant) addition; the app sums them for the day/week/month totals.
--- Append-only — a second batch on the same day is simply another row, so the
--- history shows everything that was added.
+-- The manual production log that replaced the old inventory screen, and the
+-- numbers behind the sheet the shop keeps by hand:
+--
+--   Beg. Inventory + Produced − Sold − Rejects = Ending Inventory
+--
+-- Production types `qty` (pieces that came out good) and `rejected` (pieces
+-- thrown away). One row per (day, variant) addition; the app sums them for the
+-- day. Append-only — a second batch on the same day is simply another row, so
+-- the history shows everything that was added.
+--
+-- `qty` may be 0: a day can be all rejects, and that still has to be recorded.
+-- The check keeps an empty row from ever being written.
 create table if not exists public.production (
   id          uuid primary key default gen_random_uuid(),
   produced_on date not null default current_date,
   variant_key text not null,
-  qty         integer not null check (qty > 0),
+  qty         integer not null default 0 check (qty >= 0),
+  rejected    integer not null default 0 check (rejected >= 0),
   created_by  text references public.profiles (slug),
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
+  constraint production_not_empty check (qty > 0 or rejected > 0)
 );
 
 create index if not exists production_day_idx
@@ -220,6 +229,29 @@ create policy production_insert on public.production
   );
 
 grant select, insert on public.production to authenticated;
+
+-- ── production: sold counts ─────────────────────────────────────────────────
+-- The Production page shows "Sold" next to "Produced" (the shop's sheet does),
+-- but a production member may not read the sales table (that is customer data).
+-- This returns only the AGGREGATE — pieces sold per variant per day — and only
+-- to Production and the GM, so the monitoring numbers work without exposing any
+-- customer or money detail.
+create or replace function public.production_sold(p_from date, p_to date)
+returns table (variant text, sold_on date, qty bigint)
+language sql stable security definer set search_path = public
+as $$
+  select s.variant, s.sold_on, sum(s.qty)::bigint
+  from public.sales s
+  where s.status <> 'void'
+    and s.sold_on between p_from and p_to
+    and exists (
+      select 1 from public.profiles p
+      where p.auth_id = auth.uid() and p.role in ('production', 'gm')
+    )
+  group by s.variant, s.sold_on;
+$$;
+
+grant execute on function public.production_sold(date, date) to authenticated;
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- The one thing a customer is allowed to ask

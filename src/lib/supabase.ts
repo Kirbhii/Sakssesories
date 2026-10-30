@@ -91,9 +91,26 @@ export interface ProductionRow {
   produced_on: string;
   /** e.g. 'heart-navy' — matches a VARIANTS key from `data.ts`. */
   variant_key: string;
+  /** Pieces that came out good. */
   qty: number;
+  /** Pieces that had to be thrown away (bubbles, uneven resin, wrong colour). */
+  rejected: number;
   created_by: string | null;
   created_at: string;
+}
+
+/**
+ * One row of `production_sold(from, to)`: how many pieces of a variant the
+ * counter sold on a day. It is an aggregate, not a sale — Production gets the
+ * count without ever seeing who bought it or what they paid.
+ */
+export interface SoldRow {
+  /** The label the POS writes, e.g. 'Heart / Maroon'. */
+  variant: string;
+  /** 'YYYY-MM-DD'. */
+  sold_on: string;
+  /** `sum(qty)` comes back as a bigint, which the client hands over as a string. */
+  qty: number | string;
 }
 
 /**
