@@ -4,6 +4,7 @@ import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import { COLOURS, VARIANTS, peso } from '@/lib/data';
 import type { ShapeId } from '@/lib/data';
+import { isClosed, nextOpenLabel } from '@/lib/schedule';
 
 // ─── Small inline icons ─────────────────────────────────────────────────────
 
@@ -297,6 +298,19 @@ export default function Home() {
   return (
     <div className="bg-white">
       <SiteHeader />
+
+      {/* Closed day: the shop stays browsable, but ordering is paused. */}
+      {isClosed() && (
+        <div className="border-b border-blush-300 bg-blush-50">
+          <div className="mx-auto flex max-w-[1240px] items-center justify-center gap-2 px-4 py-2 text-center text-[10.5px] leading-[1.5] text-ink-500">
+            <i className="h-[5px] w-[5px] flex-none rounded-full bg-crimson-600" />
+            <span>
+              <b className="text-ink-900">Closed today</b> — ordering resumes{' '}
+              {nextOpenLabel()}. You can still browse the shop.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { nextOpenLabel, weekdayName } from '@/lib/schedule';
 
 // ─── Closed for the day ─────────────────────────────────────────────────────
@@ -39,6 +40,12 @@ export default function Closed() {
         <p className="mt-6 text-[9px] uppercase tracking-[0.16em] text-ink-300">
           No operations today · Back on {nextOpenLabel(today)}
         </p>
+        <Link
+          to="/"
+          className="mt-7 inline-block rounded-pill border border-blush-300 bg-white px-5 py-2.5 text-[11px] font-medium text-ink-900 transition-colors hover:border-wine-800 hover:text-wine-800"
+        >
+          Back to the shop
+        </Link>
       </div>
     </main>
   );

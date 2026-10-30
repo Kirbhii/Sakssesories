@@ -46,6 +46,15 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Closed day? Ordering is shut, but the shop itself stays browsable — so only
+ * the POS/ordering route is replaced with the closed screen, not the whole site.
+ */
+function RequireOpen({ children }: { children: ReactNode }) {
+  if (isClosed()) return <Closed />;
+  return <>{children}</>;
+}
+
 /** Signed in but wrong role? Say so plainly instead of bouncing to the homepage. */
 function RequireRole({
   allow,
@@ -63,11 +72,6 @@ function RequireRole({
 }
 
 export default function App() {
-  // No operation on a closed day (Wednesday): the whole site is unreachable,
-  // not just the staff area. The gate sits outside the router, so even /login
-  // is closed — there is nothing to sign in for on a rest day.
-  if (isClosed()) return <Closed />;
-
   return (
     <BrowserRouter>
       <ScrollToTop />
@@ -79,7 +83,14 @@ export default function App() {
         {/* The POS is open to everyone — a signed-out visitor is a customer
             ordering for themselves (cash locked, no quota). A signed-in member
             is staff ringing up a sale (cash enabled, quota shown). */}
-        <Route path="/pos" element={<Pos />} />
+        <Route
+          path="/pos"
+          element={
+            <RequireOpen>
+              <Pos />
+            </RequireOpen>
+          }
+        />
 
         {/* ── Staff face: one Portal, the rail on the left, the tab on the
             right. Every staff door lives inside /portal, so a member only sees
