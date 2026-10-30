@@ -14,9 +14,6 @@ import {
 // The manual log that replaced the inventory screen. Production types how many
 // pieces of each variant they finished on a day; the page keeps every batch in
 // the history and adds up the day, week and month totals per variant.
-//
-// The shop's paper sheet is kept here as a reference (the photo at the top) so
-// the team can see what this replaces without losing the format they know.
 
 const uid = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -43,7 +40,6 @@ export default function Production() {
   const [qty, setQty] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [showSheet, setShowSheet] = useState(false);
 
   function setOne(key: string, value: string): void {
     setQty((prev) => ({ ...prev, [key]: value.replace(/[^0-9]/g, '') }));
@@ -141,27 +137,7 @@ export default function Production() {
               month.
             </p>
           </div>
-          <button
-            onClick={() => setShowSheet((v) => !v)}
-            className="rounded-pill border border-blush-300 bg-white px-[15px] py-2 text-[11px] font-medium transition-colors hover:border-wine-800 hover:text-wine-800"
-          >
-            {showSheet ? 'Hide' : 'View'} reference sheet
-          </button>
         </div>
-
-        {/* The manual sheet this replaces — kept as a reference. */}
-        {showSheet && (
-          <div className="mt-4 overflow-hidden rounded-[7px] border border-blush-300 bg-white">
-            <div className="border-b border-blush-300/60 px-4 py-2.5 text-[10px] text-ink-500">
-              The shop's manual daily inventory sheet — same idea, now typed in.
-            </div>
-            <img
-              src="/img/production-sheet.jpg"
-              alt="The shop's manual daily production sheet"
-              className="max-h-[560px] w-full bg-blush-50 object-contain"
-            />
-          </div>
-        )}
 
         <div className="mt-[18px] grid grid-cols-[1fr_360px] items-start gap-[18px] max-xl:grid-cols-1">
           {/* ── Log form ─────────────────────────────────────────────────── */}
