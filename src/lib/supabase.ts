@@ -85,6 +85,17 @@ export interface SaleRow {
   created_at: string;
 }
 
+export interface ProductionRow {
+  id: string;
+  /** 'YYYY-MM-DD' — the day the pieces were finished. */
+  produced_on: string;
+  /** e.g. 'heart-navy' — matches a VARIANTS key from `data.ts`. */
+  variant_key: string;
+  qty: number;
+  created_by: string | null;
+  created_at: string;
+}
+
 /**
  * What `payee_for(method)` hands back to a signed-out customer: one account,
  * and only the fields the payer has to see. No listing, no other members'

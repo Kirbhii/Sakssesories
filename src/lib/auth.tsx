@@ -19,6 +19,7 @@ import {
   type MemberRole,
 } from '@/lib/quota';
 import { loadAccounts } from '@/lib/payaccounts';
+import { loadProduction } from '@/lib/production';
 import { loadSales } from '@/lib/sales';
 import { supabase } from '@/lib/supabase';
 
@@ -127,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void loadSales();
     void loadAccounts();
+    void loadProduction();
   }, [member?.id]);
 
   const value = useMemo<AuthValue>(

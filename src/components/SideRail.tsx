@@ -36,7 +36,12 @@ const RAIL: RailItem[] = [
     roles: STAFF,
   },
   { label: 'Summary', icon: 'M2.6 3.2h10.8M2.6 6.5h10.8M2.6 9.8h10.8M2.6 13.1h6.4', to: '/portal/summary', roles: STAFF },
-  { label: 'Inventory', icon: 'M8 1.8 13.6 4.5v7L8 14.2 2.4 11.5v-7L8 1.8Z', to: '/portal/inventory', roles: STAFF },
+  {
+    label: 'Production',
+    icon: 'M8 2 14 5.2 8 8.4 2 5.2 8 2ZM2 8.6 8 11.8 14 8.6M2 11.4 8 14.6 14 11.4',
+    to: '/portal/production',
+    roles: ['production', 'gm'],
+  },
   {
     label: 'Finance',
     icon: 'M8 1.6v12.8M11.2 4.4c0-1.3-1.4-2.1-3.2-2.1s-3.2.8-3.2 2.1 1.4 2.1 3.2 2.1 3.2.8 3.2 2.1-1.4 2.1-3.2 2.1-3.2-.8-3.2-2.1',

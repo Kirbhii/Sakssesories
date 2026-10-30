@@ -93,6 +93,24 @@ create table if not exists public.sales (
 create index if not exists sales_staff_idx on public.sales (staff_slug, sold_on desc);
 create index if not exists sales_or_idx on public.sales (or_no);
 
+-- ─── Production ─────────────────────────────────────────────────────────────
+-- The manual production log that replaced the old inventory screen: Production
+-- types how many pieces of each variant they finished on a given day. One row
+-- per (day, variant) addition; the app sums them for the day/week/month totals.
+-- Append-only — a second batch on the same day is simply another row, so the
+-- history shows everything that was added.
+create table if not exists public.production (
+  id          uuid primary key default gen_random_uuid(),
+  produced_on date not null default current_date,
+  variant_key text not null,
+  qty         integer not null check (qty > 0),
+  created_by  text references public.profiles (slug),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists production_day_idx
+  on public.production (produced_on desc, variant_key);
+
 -- ════════════════════════════════════════════════════════════════════════════
 -- Who is asking
 -- ════════════════════════════════════════════════════════════════════════════
@@ -120,6 +138,7 @@ as $$ select exists (select 1 from profiles where auth_id = auth.uid() and role 
 alter table public.profiles         enable row level security;
 alter table public.payment_accounts enable row level security;
 alter table public.sales            enable row level security;
+alter table public.production       enable row level security;
 
 -- ── profiles ────────────────────────────────────────────────────────────────
 -- A member sees the team roster (needed for the quota strip and the summary's
@@ -181,6 +200,26 @@ grant select, insert, update on public.profiles to authenticated;
 grant select, insert, update on public.payment_accounts to authenticated;
 grant select, insert, update on public.sales to authenticated;
 grant insert on public.sales to anon;
+
+-- ── production ──────────────────────────────────────────────────────────────
+-- Any signed-in staff member may read the log (Finance may want the totals);
+-- only Production and the GM may add to it.
+drop policy if exists production_read on public.production;
+create policy production_read on public.production
+  for select to authenticated using (true);
+
+drop policy if exists production_insert on public.production;
+create policy production_insert on public.production
+  for insert to authenticated
+  with check (
+    created_by = my_slug()
+    and exists (
+      select 1 from public.profiles
+      where auth_id = auth.uid() and role in ('production', 'gm')
+    )
+  );
+
+grant select, insert on public.production to authenticated;
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- The one thing a customer is allowed to ask

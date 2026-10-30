@@ -7,7 +7,7 @@ import Portal from '@/pages/Portal';
 import MySales from '@/pages/MySales';
 import Summary from '@/pages/Summary';
 import PaymentQr from '@/pages/PaymentQr';
-import Inventory from '@/pages/Inventory';
+import Production from '@/pages/Production';
 import Finance from '@/pages/Finance';
 import QuotaSettings from '@/pages/QuotaSettings';
 import Users from '@/pages/Users';
@@ -108,7 +108,17 @@ export default function App() {
           <Route path="summary" element={<Summary />} />
           {/* Every member publishes their own payment codes, so no RequireRole. */}
           <Route path="payment" element={<PaymentQr />} />
-          <Route path="inventory" element={<Inventory />} />
+          <Route
+            path="production"
+            element={
+              <RequireRole
+                allow={['production', 'gm']}
+                need="The production log belongs to Production and the GM."
+              >
+                <Production />
+              </RequireRole>
+            }
+          />
           <Route
             path="finance"
             element={
