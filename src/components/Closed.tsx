@@ -25,10 +25,10 @@ export default function Closed() {
           Saksesories PH
         </p>
         <h1 className="mt-2 text-[clamp(24px,3vw,32px)] text-ink-900">
-          Sarado ngayong {day}.
+          Closed today — {day}.
         </h1>
         <p className="mt-3 text-[12px] leading-[1.7] text-ink-500">
-          Walang operasyon tuwing {day}. Bubukas ulit kami sa{' '}
+          No operations on {day}. We&rsquo;re back on{' '}
           <b className="text-ink-900">{nextOpenLabel(today)}</b>.
         </p>
         {today.getDay() === 5 && (
