@@ -12,7 +12,9 @@ import Finance from '@/pages/Finance';
 import QuotaSettings from '@/pages/QuotaSettings';
 import Users from '@/pages/Users';
 import Restricted from '@/components/Restricted';
+import Closed from '@/components/Closed';
 import { useAuth } from '@/lib/auth';
+import { isClosed } from '@/lib/schedule';
 import type { MemberRole } from '@/lib/quota';
 
 /** Every route starts at the top — no inheriting the previous page's scroll. */
@@ -61,6 +63,11 @@ function RequireRole({
 }
 
 export default function App() {
+  // No operation on a closed day (Wednesday): the whole site is unreachable,
+  // not just the staff area. The gate sits outside the router, so even /login
+  // is closed — there is nothing to sign in for on a rest day.
+  if (isClosed()) return <Closed />;
+
   return (
     <BrowserRouter>
       <ScrollToTop />

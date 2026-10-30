@@ -502,14 +502,16 @@ export function monthOf(ago: number): string {
 }
 
 /**
- * The Monday that starts the week a row falls in. Weeks run Mon–Sun, which is
- * how a Philippine shop reads a week — Sunday belongs to the week that is
- * ending, not the one starting.
+ * The Saturday that starts the week a row falls in. Weeks run Saturday→Friday,
+ * because the shop remits every Friday — a "week" here is one remittance batch,
+ * from the Saturday after the last remittance through to the Friday it is turned
+ * in. (The shop only sells Sat, Mon, Tue and Thu; the off days just have no rows.)
  */
 export function weekStart(ago: number): Date {
   const d = dateObj(ago);
-  const monday = (d.getDay() + 6) % 7; // Sunday is 0 → 6, Monday is 1 → 0
-  d.setDate(d.getDate() - monday);
+  // Days since Saturday: Sat=0, Sun=1, Mon=2, Tue=3, Wed=4, Thu=5, Fri=6.
+  const sinceSaturday = (d.getDay() + 1) % 7;
+  d.setDate(d.getDate() - sinceSaturday);
   return d;
 }
 
@@ -540,13 +542,13 @@ export function colourOf(sale: Sale): string {
 
 /**
  * Does a row fall inside a range? "This week" and "this month" now follow the
- * real calendar instead of a rolling window: a week starts on Monday and a
- * month on the 1st, so the pill means what it says. `ago` is a day count, so
- * each boundary is just the day count back to it.
+ * real calendar instead of a rolling window: a week starts on Saturday (the
+ * remittance cycle) and a month on the 1st, so the pill means what it says.
+ * `ago` is a day count, so each boundary is just the day count back to it.
  */
 export function inRange(ago: number, range: Range): boolean {
   if (range === 'today') return ago === 0;
-  if (range === 'week') return ago <= (BASE.getDay() + 6) % 7; // Sunday 0 → 6
+  if (range === 'week') return ago <= (BASE.getDay() + 1) % 7; // days since Saturday
   if (range === 'month') return ago <= BASE.getDate() - 1;
   return true;
 }
