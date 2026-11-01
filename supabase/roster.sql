@@ -40,7 +40,14 @@ order by role, slug;
 -- 2. Adding a person — the whole process
 -- ════════════════════════════════════════════════════════════════════════════
 --
--- Two steps, and the order does not matter:
+-- If their address is on one of the role domains (@marketing.com,
+-- @production.com, @finance.com, @gm.com) there is only ONE step: create the
+-- login in Authentication → Users with "Auto Confirm User" ticked. Run
+-- `auto-roster.sql` once and the profile is written for you, with the role the
+-- domain says and a name guessed from the address.
+--
+-- Everything below is for anybody else — a Gmail, a personal address, a domain
+-- that does not say what they do.
 --
 --   a) Supabase → Authentication → Users → Add user
 --        email:    the same address you will use below
@@ -50,10 +57,9 @@ order by role, slug;
 --
 --   b) Uncomment the block below, change the five values, run it.
 --
--- That is it. The trigger on `auth.users` links the login to this row by
--- email the moment the account exists, so there is no id to copy and no code
--- to change. Refresh the app and they are on the Users screen, in the quota
--- split, and in the member picker.
+-- The trigger on `auth.users` links the login to this row by email, so there
+-- is no id to copy. Refresh the app and they are on the Users screen, in the
+-- quota split, and in the member picker.
 --
 -- `slug` is the short name the whole app uses in its records — sales, payment
 -- codes, production entries all store it. Use the person's first name in lower

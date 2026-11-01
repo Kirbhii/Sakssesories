@@ -72,9 +72,13 @@ export default function Users() {
         <p className="mt-4 max-w-[74ch] text-[9.5px] leading-[1.8] text-ink-300">
           This list is the staff table in the database — there is no second list to keep
           in step. <b className="font-medium text-ink-500">To add someone:</b> create their
-          login in Supabase under Authentication → Users (tick “Auto Confirm User”), then
-          add their row with <span className="text-ink-500">supabase/roster.sql</span>. They
-          show up here on the next refresh.
+          login in Supabase under Authentication → Users and tick “Auto Confirm User”. If
+          their address ends in <span className="text-ink-500">@marketing.com</span>,{' '}
+          <span className="text-ink-500">@production.com</span>,{' '}
+          <span className="text-ink-500">@finance.com</span> or{' '}
+          <span className="text-ink-500">@gm.com</span> they appear here on their own. For
+          any other address, add their row with{' '}
+          <span className="text-ink-500">supabase/roster.sql</span>.
         </p>
     </main>
   );

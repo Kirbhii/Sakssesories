@@ -306,19 +306,89 @@ grant execute on function public.payee_for(text) to anon, authenticated;
 -- ════════════════════════════════════════════════════════════════════════════
 -- Linking a login to a member
 -- ════════════════════════════════════════════════════════════════════════════
--- The moment a login is created, if its email matches a seeded profile, the two
--- are joined. A login whose email is not on the list links to nothing, and with
--- no profile every policy above denies it — the account exists but can do
--- nothing, which is the right outcome for a stranger who signed up.
+-- The moment a login is created, one of two things happens:
+--
+--   • Its email matches a seeded profile → the two are joined.
+--   • Its domain says what the person does (@marketing.com, @production.com,
+--     @finance.com, @gm.com) → a profile is created for them on the spot.
+--
+-- Everything else links to nothing. With no profile, every policy above denies
+-- the account: it exists but can do nothing, which is the right outcome for a
+-- stranger who signed up.
+--
+-- The domain is not a password, so two guards sit in front of it: the address
+-- has to be CONFIRMED (a stranger cannot confirm someone@finance.com — that
+-- mail goes to whoever really owns finance.com), and public sign-up should be
+-- switched off in Authentication → Sign In / Providers so only the shop can
+-- create accounts at all.
+--
+-- See `auto-roster.sql` for the same function with the full explanation.
 create or replace function public.link_profile()
 returns trigger
 language plpgsql security definer set search_path = public
 as $$
+declare
+  raw_local  text;
+  mail_domain text;
+  role_guess text;
+  dept_guess text;
+  base_slug  text;
+  new_slug   text;
+  n          int := 1;
 begin
-  update profiles
+  if new.email is null or new.email_confirmed_at is null then
+    return new;
+  end if;
+
+  update public.profiles
      set auth_id = new.id
    where lower(email) = lower(new.email)
      and auth_id is null;
+  if found then
+    return new;
+  end if;
+
+  if exists (select 1 from public.profiles where auth_id = new.id) then
+    return new;
+  end if;
+
+  mail_domain := lower(split_part(new.email, '@', 2));
+  role_guess := case mail_domain
+    when 'marketing.com'      then 'marketing'
+    when 'production.com'     then 'production'
+    when 'prod.com'           then 'production'
+    when 'finance.com'        then 'finance'
+    when 'gm.com'             then 'gm'
+    when 'generalmanager.com' then 'gm'
+  end;
+  if role_guess is null then
+    return new;
+  end if;
+
+  dept_guess := case when role_guess = 'gm' then 'finance' else role_guess end;
+
+  raw_local := split_part(new.email, '@', 1);
+  base_slug := lower(regexp_replace(raw_local, '[^a-zA-Z0-9]', '', 'g'));
+  if base_slug = '' then
+    base_slug := 'member';
+  end if;
+
+  new_slug := base_slug;
+  while exists (select 1 from public.profiles where slug = new_slug) loop
+    n := n + 1;
+    new_slug := base_slug || n::text;
+  end loop;
+
+  insert into public.profiles (slug, email, full_name, role, department, auth_id)
+  values (
+    new_slug,
+    lower(new.email),
+    initcap(regexp_replace(raw_local, '[._-]+', ' ', 'g')),
+    role_guess,
+    dept_guess,
+    new.id
+  );
+
   return new;
 end;
 $$;
