@@ -86,7 +86,58 @@ export interface Sale {
    * (see `setRemitted`) so an order is "remitted" as a whole, never line by line.
    */
   remitted: boolean;
+  /**
+   * Where the order is in the shop. Separate from `status`, which is about
+   * money: an order can be paid and still be on the table, or unpaid while the
+   * piece is already wrapped.
+   */
+  stage: Stage;
 }
+
+/**
+ * The journey an order makes. Pickup and delivery share the first two steps and
+ * then part: a pickup is collected over the counter, a delivery goes out with a
+ * courier. `cancelled` is the way out of any of them.
+ */
+export type Stage =
+  | 'placed'
+  | 'preparing'
+  | 'ready'
+  | 'shipped'
+  | 'claimed'
+  | 'delivered'
+  | 'cancelled';
+
+export const STAGE_LABEL: Record<Stage, string> = {
+  placed: 'Order received',
+  preparing: 'Being prepared',
+  ready: 'Ready for pickup',
+  shipped: 'Out for delivery',
+  claimed: 'Picked up',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
+/** The steps shown on the tracking page, in order, for each way of getting it. */
+export function stageTrack(location: string): Stage[] {
+  return location.toLowerCase().includes('deliver')
+    ? ['placed', 'preparing', 'shipped', 'delivered']
+    : ['placed', 'preparing', 'ready', 'claimed'];
+}
+
+/**
+ * What the button says. A label dropped straight into "Mark …" reads wrong
+ * ("Mark being prepared"), so the action gets its own words.
+ */
+export const STAGE_ACTION: Record<Stage, string> = {
+  placed: 'Back to received',
+  preparing: 'Start preparing',
+  ready: 'Mark ready for pickup',
+  shipped: 'Mark out for delivery',
+  claimed: 'Mark picked up',
+  delivered: 'Mark delivered',
+  cancelled: 'Cancel order',
+};
 
 /**
  * "Today" for the ledger, read off the machine's calendar instead of typed in.
@@ -137,6 +188,21 @@ function readLedger(): Sale[] {
 }
 
 let live: Sale[] = ONLINE ? [] : readLedger();
+
+/**
+ * Offline only: write the in-memory ledger back to the shelf.
+ *
+ * Without this, a change made to a row survives only until the next reload —
+ * which makes the local stand-in useless for walking through a flow that spans
+ * two screens, like moving an order along and then looking it up.
+ */
+function saveLedger(): void {
+  try {
+    window.localStorage.setItem(LEDGER_KEY, JSON.stringify(live));
+  } catch {
+    /* private mode, or the shelf is full — the in-memory copy still works */
+  }
+}
 let version = 0;
 let cache: Sale[] = SALES;
 let cacheVersion = -1;
@@ -199,6 +265,9 @@ function rowToSale(r: SaleRow): Sale {
     // Older rows (or a database where the migration has not run yet) have no
     // `remitted` value — treat their absence as "not yet remitted".
     remitted: r.remitted ?? false,
+    // Same for `stage`: a row with no stage has not been started, which is
+    // exactly what 'placed' means.
+    stage: (r.stage as Stage) ?? 'placed',
   };
 }
 
@@ -245,7 +314,7 @@ function saleToRow(s: Sale): Omit<SaleRow, 'created_at' | 'remitted'> {
 // missing, so the app keeps working until the migration is applied — every row
 // is then just treated as "not yet remitted".
 const COLUMNS =
-  'id, or_no, sold_on, sold_at, staff_slug, customer, customer_mobile, variant, engraving, occupation, sex, location, qty, cents, pay, origin, status, pay_ref, remitted';
+  'id, or_no, sold_on, sold_at, staff_slug, customer, customer_mobile, variant, engraving, occupation, sex, location, qty, cents, pay, origin, status, pay_ref, remitted, stage';
 const COLUMNS_BASE =
   'id, or_no, sold_on, sold_at, staff_slug, customer, customer_mobile, variant, engraving, occupation, sex, location, qty, cents, pay, origin, status, pay_ref';
 
@@ -368,7 +437,10 @@ export async function setRemitted(orNo: string, value: boolean): Promise<boolean
   live = live.map((s) => (s.orNo === orNo ? { ...s, remitted: value } : s));
   publish();
 
-  if (!supabase) return true; // offline stand-in: the cache is the source of truth
+  if (!supabase) {
+    saveLedger();
+    return true;
+  }
 
   const { error } = await supabase
     .from('sales')
@@ -383,6 +455,112 @@ export async function setRemitted(orNo: string, value: boolean): Promise<boolean
     return false;
   }
   return true;
+}
+
+/**
+ * Move an order to another stage. The seller who rang it up, or anyone who
+ * handles money — the database decides, in `set_order_stage()`.
+ *
+ * Keyed by OR number like `setRemitted`: an order is several lines, and a
+ * two-piece order must not be half "ready".
+ */
+export async function setStage(orNo: string, stage: Stage): Promise<boolean> {
+  const before = live;
+  live = live.map((s) => (s.orNo === orNo ? { ...s, stage } : s));
+  publish();
+
+  if (!supabase) {
+    saveLedger();
+    return true;
+  }
+
+  const { data, error } = await supabase.rpc('set_order_stage', { p_or: orNo, p_stage: stage });
+
+  // `data` is false when the function ran but refused — not this member's
+  // order. Either way the cache has to go back to what the server still holds.
+  if (error || data !== true) {
+    live = before;
+    publish();
+    console.error('[sales] could not move the order:', error?.message ?? 'refused');
+    return false;
+  }
+  return true;
+}
+
+/** What the tracking page is allowed to know about an order. */
+export interface TrackedOrder {
+  orNo: string;
+  placedOn: string;
+  customer: string;
+  mobileLast4: string;
+  fulfilment: string;
+  payment: string;
+  paid: boolean;
+  stage: Stage;
+  pieces: number;
+  cents: number;
+  items: string;
+}
+
+/**
+ * Look up one order from the two things the buyer knows: the number and their
+ * mobile. Returns `null` for "no such order" — which is also what a wrong
+ * mobile looks like, on purpose: a different answer for "no such number" would
+ * turn the page into a way to discover which order numbers exist.
+ *
+ * Signed out, this is an anonymous RPC. The table itself stays closed.
+ */
+export async function trackOrder(orNo: string, mobile: string): Promise<TrackedOrder | null> {
+  const or = orNo.trim();
+  const digits = mobile.replace(/\D/g, '');
+  if (!or || !digits) return null;
+
+  if (!supabase) {
+    // Offline stand-in: the same two keys, read off the local ledger.
+    const rows = allSales().filter(
+      (s) =>
+        s.orNo === or &&
+        (s.mobile ?? '').replace(/\D/g, '') === digits &&
+        s.status !== 'void',
+    );
+    if (!rows.length) return null;
+    const first = rows[0];
+    return {
+      orNo: or,
+      placedOn: dateOf(first.ago),
+      customer: first.customer,
+      mobileLast4: digits.slice(-4),
+      fulfilment: first.location,
+      payment: first.pay,
+      paid: first.status === 'paid',
+      stage: first.stage,
+      pieces: rows.reduce((n, s) => n + s.qty, 0),
+      cents: rows.reduce((n, s) => n + s.cents, 0),
+      items: rows.map((s) => `${s.variant} × ${s.qty}`).join(', '),
+    };
+  }
+
+  const { data, error } = await supabase.rpc('track_order', { p_or: or, p_mobile: digits });
+  if (error) {
+    console.error('[sales] could not look the order up:', error.message);
+    return null;
+  }
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return null;
+
+  return {
+    orNo: row.or_no,
+    placedOn: row.placed_on,
+    customer: row.customer,
+    mobileLast4: row.mobile_last4 ?? '',
+    fulfilment: row.fulfilment ?? '',
+    payment: row.payment ?? '',
+    paid: row.pay_status === 'paid',
+    stage: (row.stage as Stage) ?? 'placed',
+    pieces: row.pieces ?? 0,
+    cents: row.cents ?? 0,
+    items: row.items ?? '',
+  };
 }
 
 /** Wipe the locally recorded orders. Used by the dev reset, not by the shop. */

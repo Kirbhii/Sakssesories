@@ -89,6 +89,13 @@ export interface SaleRow {
    * default; only Finance and the GM may write it (policy `sales_money_update`).
    */
   remitted: boolean;
+  /**
+   * Where the order is in the shop — 'placed', 'preparing', 'ready', 'shipped',
+   * 'claimed', 'delivered', 'cancelled'. Separate from `status`, which is about
+   * money. Optional because a database that has not run `track.sql` yet has no
+   * such column, and the app must keep working until it does.
+   */
+  stage?: string;
   created_at: string;
 }
 

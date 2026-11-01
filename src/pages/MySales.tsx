@@ -94,12 +94,21 @@ export default function MySales() {
   // same complaint twice. One person, one book.
   const baseRows = useMemo(() => {
     if (!member) return [];
-    return salesOf(member.id).filter(
-      (s) =>
-        inRange(s.ago, range) &&
-        (query === '' ||
-          `${s.customer} ${s.variant} ${s.orNo}`.toLowerCase().includes(query.toLowerCase())),
-    );
+    return salesOf(member.id).filter((s) => {
+      if (!inRange(s.ago, range)) return false;
+      if (query === '') return true;
+
+      const q = query.toLowerCase();
+      if (`${s.customer} ${s.variant} ${s.orNo}`.toLowerCase().includes(q)) return true;
+
+      // The mobile number belongs in the search too. When a customer rings up
+      // asking about their order, the number is usually all they can remember —
+      // and it is written with spaces or dashes as often as without, so the
+      // comparison is digits only. Under four digits it would match everything.
+      const digits = q.replace(/\D/g, '');
+      if (digits.length < 4) return false;
+      return (s.mobile ?? '').replace(/\D/g, '').includes(digits);
+    });
   }, [member, range, query, ledger]);
 
   const rows = useMemo(
@@ -450,7 +459,7 @@ export default function MySales() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search customer or variant"
+              placeholder="Name, mobile, variant or OR"
               className="w-24 text-[10px] outline-none placeholder:text-ink-300"
             />
           </label>

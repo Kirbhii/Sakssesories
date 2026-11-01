@@ -399,6 +399,8 @@ export default function Pos() {
       // A sale is never remitted the moment it is rung up — Finance turns that
       // on once the money is actually counted in.
       remitted: false,
+      // Nothing has happened to the piece yet; it is still on the table.
+      stage: 'placed',
     }));
 
     setSaving(true);
@@ -787,7 +789,7 @@ export default function Pos() {
                     </span>
                     {isStaff
                       ? 'It is how the order is looked up later, and what the customer quotes when they claim.'
-                      : 'Save it or take a photo. It is also what the team asks for when you claim.'}
+                      : 'Save it or take a photo. Check it any time under “Track order” at the bottom of the site.'}
                   </p>
                 </div>
 

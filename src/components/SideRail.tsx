@@ -31,6 +31,13 @@ const STAFF: MemberRole[] = ['marketing', 'production', 'finance', 'gm'];
 const RAIL: RailItem[] = [
   { label: 'My sales', icon: 'M3.4 2h9.2v12l-2.3-1.5L8 14l-2.3-1.5L3.4 14V2Z', to: '/portal', end: true, roles: STAFF },
   {
+    label: 'Orders',
+    // A parcel with its flap open — the things still owed to somebody.
+    icon: 'M2.4 5.2 8 2.4l5.6 2.8v5.6L8 13.6 2.4 10.8V5.2ZM2.4 5.2 8 8m0 0 5.6-2.8M8 8v5.6',
+    to: '/portal/orders',
+    roles: STAFF,
+  },
+  {
     label: 'Payment QR',
     icon: 'M2.4 2.4h3.6v3.6H2.4zM10 2.4h3.6v3.6H10zM2.4 10h3.6v3.6H2.4zM9.4 9.4h1.5v1.5H9.4zM11.9 11.9h1.5v1.5h-1.5z',
     to: '/portal/payment',

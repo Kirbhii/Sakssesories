@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 const COLUMNS = [
   {
     title: 'Explore',
@@ -39,16 +41,25 @@ export default function SiteFooter() {
                 {col.title}
               </h4>
               <ul className="grid gap-[9px]">
-                {col.links.map((link) => (
-                  <li key={link}>
-                    <a
-                      href="#"
-                      className="text-[11.5px] text-blush-100/75 transition-colors hover:text-blush-100"
-                    >
-                      {link}
-                    </a>
-                  </li>
-                ))}
+                {col.links.map((link) => {
+                  // "Track order" is the one entry here that is a real page
+                  // rather than a placeholder for one.
+                  const cls =
+                    'text-[11.5px] text-blush-100/75 transition-colors hover:text-blush-100';
+                  return (
+                    <li key={link}>
+                      {link === 'Track order' ? (
+                        <Link to="/track" className={cls}>
+                          {link}
+                        </Link>
+                      ) : (
+                        <a href="#" className={cls}>
+                          {link}
+                        </a>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}

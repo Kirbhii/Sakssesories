@@ -12,6 +12,8 @@ import Production from '@/pages/Production';
 import Finance from '@/pages/Finance';
 import QuotaSettings from '@/pages/QuotaSettings';
 import Users from '@/pages/Users';
+import Track from '@/pages/Track';
+import Orders from '@/pages/Orders';
 import Restricted from '@/components/Restricted';
 import Closed from '@/components/Closed';
 import { useAuth } from '@/lib/auth';
@@ -81,6 +83,9 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
 
+        {/* No login, no account: the buyer's only way back to their order. */}
+        <Route path="/track" element={<Track />} />
+
         {/* The POS is open to everyone — a signed-out visitor is a customer
             ordering for themselves (cash locked, no quota). A signed-in member
             is staff ringing up a sale (cash enabled, quota shown). */}
@@ -105,6 +110,9 @@ export default function App() {
           }
         >
           <Route index element={<MySales />} />
+          {/* Every member can see the queue and push it along; the database
+              decides who may actually write (the seller, or money roles). */}
+          <Route path="orders" element={<Orders />} />
           {/* The overall summary is open to every staff member, so no RequireRole. */}
           <Route path="summary" element={<Summary />} />
           {/* Every member publishes their own payment codes, so no RequireRole. */}

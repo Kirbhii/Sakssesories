@@ -99,6 +99,11 @@ create table if not exists public.sales (
   -- Finance marks an order "remitted" once its money has been turned in. Off by
   -- default; only Finance and the GM may flip it (policy sales_money_update).
   remitted        boolean not null default false,
+  -- Where the order is in the shop, as opposed to where the money is. Kept
+  -- separate from `status` because an order can be paid and still on the table.
+  stage           text not null default 'placed'
+                  check (stage in ('placed', 'preparing', 'ready', 'shipped',
+                                   'claimed', 'delivered', 'cancelled')),
   created_at      timestamptz not null default now()
 );
 
@@ -566,6 +571,102 @@ set auth_id = u.id
 from auth.users u
 where lower(p.email) = lower(u.email)
   and p.auth_id is null;
+
+
+-- ─── Order tracking ─────────────────────────────────────────────────────────
+-- The customer has no account, so the order number plus the mobile they gave is
+-- the only way back to their order. `sales` is readable only by the member who
+-- sold the item or by money roles, so a public tracking page cannot be given
+-- SELECT on it — the table carries names, mobiles and the whole team's takings.
+-- These two functions are the door instead.
+--
+-- Both keys are required. Order numbers run in sequence, so the number alone
+-- would let anyone walk the ledger one guess at a time.
+
+create or replace function public.track_order(p_or text, p_mobile text)
+returns table (
+  or_no        text,
+  placed_on    date,
+  placed_at    timestamptz,
+  customer     text,
+  mobile_last4 text,
+  fulfilment   text,
+  payment      text,
+  pay_status   text,
+  stage        text,
+  pieces       int,
+  cents        int,
+  items        text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_or     text := btrim(coalesce(p_or, ''));
+  v_digits text := regexp_replace(coalesce(p_mobile, ''), '\D', '', 'g');
+begin
+  if v_or = '' or v_digits = '' then
+    return;
+  end if;
+
+  return query
+  select
+    s.or_no,
+    min(s.sold_on),
+    min(s.created_at),
+    min(s.customer),
+    right(regexp_replace(coalesce(min(s.customer_mobile), ''), '\D', '', 'g'), 4),
+    min(s.location),
+    min(s.pay),
+    min(s.status::text),
+    min(s.stage),
+    sum(s.qty)::int,
+    sum(s.cents)::int,
+    string_agg(s.variant || ' × ' || s.qty, ', ' order by s.id)
+  from public.sales s
+  where s.or_no = v_or
+    and regexp_replace(coalesce(s.customer_mobile, ''), '\D', '', 'g') = v_digits
+    and s.status <> 'void'
+  group by s.or_no;
+end;
+$$;
+
+revoke all on function public.track_order(text, text) from public;
+grant execute on function public.track_order(text, text) to anon, authenticated;
+
+-- The seller who rang it up, or anyone who handles money. A policy permissive
+-- enough to let a seller touch `stage` would also let them touch `cents` and
+-- `status`, and a seller who can mark their own sale paid is the hole the rest
+-- of this file is built to close.
+create or replace function public.set_order_stage(p_or text, p_stage text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_or text := btrim(coalesce(p_or, ''));
+begin
+  if v_or = '' then
+    return false;
+  end if;
+
+  if p_stage not in ('placed', 'preparing', 'ready', 'shipped', 'claimed', 'delivered', 'cancelled') then
+    return false;
+  end if;
+
+  update public.sales
+     set stage = p_stage
+   where or_no = v_or
+     and (public.is_money() or staff_slug = public.my_slug());
+
+  return found;
+end;
+$$;
+
+revoke all on function public.set_order_stage(text, text) from public;
+grant execute on function public.set_order_stage(text, text) to authenticated;
 
 
 -- ════════════════════════════════════════════════════════════════════════════
