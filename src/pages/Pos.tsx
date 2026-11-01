@@ -173,6 +173,17 @@ export default function Pos() {
   const cashValue = Math.round(Number(cash || 0) * 100);
   const change = cashValue - total;
 
+  // Short cash stops the sale. The database already refuses a sale recorded
+  // below the price list, but that only protects the record — it cannot know
+  // how many notes crossed the counter. Here the cashier has typed what the
+  // customer handed over, and it does not cover the bill, so the difference
+  // would come out of somebody's pocket.
+  //
+  // Only when an amount was actually typed: leaving the field blank is how
+  // staff record a sale without counting the notes first, and that has to keep
+  // working.
+  const cashShort = payment === 'cash' && cash !== '' && change < 0;
+
   const meQuota = member ? quotaOf(member.id) : 0;
   const meRoom = member ? roomOf(member.id) : 0;
 
@@ -311,7 +322,7 @@ export default function Pos() {
 
   async function complete() {
     if (!cart.length || missing.length || saving) return;
-    if (blocked || payBlocked || payWaiting || !creditId) return;
+    if (blocked || payBlocked || payWaiting || cashShort || !creditId) return;
 
     // The order becomes rows in the ledger — one row per cart line, all sharing
     // this OR number, exactly the way the shop's summary sheet lists a
@@ -949,24 +960,30 @@ export default function Pos() {
 
             <button
               onClick={complete}
-              disabled={!cart.length || blocked || payBlocked || payWaiting || saving || missing.length > 0}
+              disabled={
+                !cart.length || blocked || payBlocked || payWaiting || cashShort || saving || missing.length > 0
+              }
               className={[
                 'mt-3.5 w-full justify-center rounded-pill px-[18px] py-3 text-[11.5px] font-medium text-white transition-colors',
                 blocked ? 'bg-ink-500' : done ? 'bg-ok-600' : 'bg-crimson-600 hover:bg-wine-800',
-                (!cart.length || missing.length > 0 || payBlocked || payWaiting) && !blocked ? 'opacity-50' : '',
+                (!cart.length || missing.length > 0 || payBlocked || payWaiting || cashShort) && !blocked
+                  ? 'opacity-50'
+                  : '',
               ].join(' ')}
             >
               {blocked
                 ? `Team quota reached · ${PLAN.team}/${PLAN.team}`
                 : payBlocked
                   ? `No ${methodLabel(payment)} account to pay`
-                  : saving
-                    ? 'Saving…'
-                    : done
-                      ? isStaff
-                        ? `Sale recorded — ${creditName} ✓`
-                        : 'Order sent ✓'
-                      : `${isStaff ? 'Complete sale' : 'Send order'} · ${peso(total)}`}
+                  : cashShort
+                    ? `Short by ${peso(Math.abs(change))}`
+                    : saving
+                      ? 'Saving…'
+                      : done
+                        ? isStaff
+                          ? `Sale recorded — ${creditName} ✓`
+                          : 'Order sent ✓'
+                        : `${isStaff ? 'Complete sale' : 'Send order'} · ${peso(total)}`}
             </button>
 
             {saveError && (
