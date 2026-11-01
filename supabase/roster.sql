@@ -1,27 +1,28 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- The staff roster
+-- The staff roster — how to add and retire people
 --
--- Paste this into the Supabase SQL Editor and run it once. It is safe to run
--- twice.
+-- The roster itself now lives in `roster-2026.sql`: the seventeen people who
+-- work here, their addresses, and the payee picker that goes with them. Run
+-- that file once.
 --
--- Part 1 removes the eighteen placeholder names the project started with and
--- keeps the four people who actually work here. Part 2 is the template for
--- adding somebody new — it is commented out, so running this file never
--- invents a person by accident.
---
--- This table is now the roster the app reads. There is no second list in the
--- code, so a person added here shows up on every screen after a refresh.
+-- This file is the everyday tool for changing the roster afterwards.
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── 1. Who stays ────────────────────────────────────────────────────────────
--- Checked before the delete: every one of these rows has zero sales, zero
--- payment codes and zero production entries, so nothing is being thrown away.
---
--- The delete is also guarded: a placeholder that somehow *does* have history is
--- left alone rather than dragging a sale or a QR code down with it.
+-- Anything not on the roster is removed, but only when it has nothing hanging
+-- off it: no sales, no payment codes, no production entries. A row that does
+-- have history is left alone rather than dragging a sale or a QR code down
+-- with it — switch it off with `update public.profiles set active = false`
+-- instead.
 delete from public.profiles p
-where p.slug not in ('gabriel', 'maria', 'jheff', 'carlo')
+where p.slug not in (
+  'jheff', 'lenon', 'carino', 'evangelista', 'yu', 'nisnisan',
+  'pastor', 'branda', 'valdez', 'germones', 'flores', 'alnin', 'batalla',
+  'galicia',
+  'gapusan', 'nevero', 'dupaya'
+)
   and not exists (select 1 from public.sales s where s.staff_slug = p.slug)
+  and not exists (select 1 from public.payment_accounts a where a.member_slug = p.slug)
   and not exists (select 1 from public.production pr where pr.created_by = p.slug);
 
 -- Who is left, and who can sign in.

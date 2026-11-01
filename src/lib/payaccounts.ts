@@ -19,8 +19,9 @@
 // one approved account and nothing else.
 
 import { useSyncExternalStore } from 'react';
-import { activeMembers, memberOf, needOf, roomOf } from '@/lib/quota';
-import { supabase, type PaymentAccountRow, type PayeeRow } from '@/lib/supabase';
+import { activeMembers, memberOf } from '@/lib/quota';
+import { creditedByMember } from '@/lib/sales';
+import { supabase, type PaymentAccountRow, type PayeeListRow, type PayeeRow } from '@/lib/supabase';
 
 export interface PayMethodInfo {
   id: string;
@@ -67,6 +68,19 @@ export interface PayAccount extends PayCode {
 export interface Payee extends PayCode {
   memberId: string;
   memberName: string;
+}
+
+/**
+ * One person a customer can choose to buy from.
+ *
+ * `hasCode` says whether this person has an approved code for the method the
+ * customer picked. It lets the page say "Jheff has no GCash code yet" instead
+ * of letting somebody walk into a dead end.
+ */
+export interface PayeeChoice {
+  memberId: string;
+  memberName: string;
+  hasCode: boolean;
 }
 
 const STORAGE_KEY = 'skph.payaccounts';
@@ -209,6 +223,61 @@ export function methodLabel(id: string): string {
 }
 
 /**
+ * How many pieces each person has been credited with this month, with zero
+ * filled in for anybody who has sold nothing.
+ *
+ * Offline only — with a database the same ranking comes from the server, and
+ * the server has the whole ledger while this has only what the signed-in
+ * member is allowed to see.
+ */
+function soldThisMonth(): Record<string, number> {
+  const counted = creditedByMember();
+  const out: Record<string, number> = {};
+  for (const m of activeMembers) out[m.id] = counted[m.id] ?? 0;
+  return out;
+}
+
+/**
+ * The people a customer may choose to buy from.
+ *
+ * Names only — no account numbers, no codes, no sales figures. A customer gets
+ * to say WHO they are buying from, not to go through the list of accounts.
+ *
+ * The list is ordered by who has sold the fewest pieces this month, so the
+ * top of it is the person who needs the sale most — the same answer the
+ * default gives when nobody is picked.
+ */
+export async function listPayees(method: string): Promise<PayeeChoice[]> {
+  if (!supabase) {
+    const sold = soldThisMonth();
+    return activeMembers
+      .map((m) => {
+        const acc = accountOf(m.id, method);
+        return {
+          memberId: m.id,
+          memberName: m.name,
+          hasCode: !!acc?.approved && !!acc.qr,
+        };
+      })
+      .sort(
+        (a, b) =>
+          sold[a.memberId] - sold[b.memberId] || a.memberName.localeCompare(b.memberName),
+      );
+  }
+
+  const { data, error } = await supabase.rpc('payees_for', { p_method: method });
+  if (error) {
+    console.error('[payaccounts] could not list the payees:', error.message);
+    return [];
+  }
+  return ((data as PayeeListRow[] | null) ?? []).map((r) => ({
+    memberId: r.member_slug,
+    memberName: r.member_name,
+    hasCode: !!r.has_code,
+  }));
+}
+
+/**
  * Who should receive a customer's payment for this method, when there is no
  * database to ask.
  *
@@ -217,36 +286,51 @@ export function methodLabel(id: string): string {
  * that member may never have published a code, and then the customer is told
  * the method is unavailable while a teammate with an account goes unused.
  *
- * So the pool is the members who actually published a code for this method, and
- * the winner is whoever needs it most inside that pool — the same ranking
- * `creditRecipient` uses.
+ * So the pool is the members who actually published an approved code for this
+ * method, and the winner is the one who has sold the fewest pieces this
+ * month — the same rule the database uses.
  *
  * `null` means nobody can take this method at all.
  */
 export function payeeFor(method: string): string | null {
   const able = new Set(
-    accounts.filter((a) => a.method === method && a.qr).map((a) => a.memberId),
+    accounts
+      .filter((a) => a.method === method && a.approved && a.qr)
+      .map((a) => a.memberId),
   );
   const pool = activeMembers.filter((m) => able.has(m.id));
   if (!pool.length) return null;
-  return [...pool].sort((a, b) => needOf(b.id) - needOf(a.id) || roomOf(b.id) - roomOf(a.id))[0].id;
+  const sold = soldThisMonth();
+  return [...pool].sort(
+    (a, b) => sold[a.id] - sold[b.id] || a.name.localeCompare(b.name),
+  )[0].id;
 }
 
 /**
  * The account a signed-out customer should pay into.
  *
- * With a database this is `payee_for(method)` — one approved account, chosen
- * server-side, with none of the table exposed. Without one it falls back to the
- * local pick above, so the flow can still be walked through offline.
+ * With a database this is `payee_of(method, member)` for somebody the customer
+ * picked, or `payee_for(method)` for the default — one approved account,
+ * chosen server-side, with none of the table exposed. Without one it falls
+ * back to the local pick above, so the flow can still be walked through
+ * offline.
+ *
+ * The point of asking the database: it answers with the member's OWN account,
+ * so the code the customer scans and the person the order is credited to are
+ * the same person by construction. The browser never gets to swap one for the
+ * other, and it never gets to see an account that is not approved.
  *
  * `null` means nobody can take this method, and the POS has to say so rather
  * than show a code that pays nobody.
  */
-export async function findPayee(method: string): Promise<Payee | null> {
+export async function findPayee(
+  method: string,
+  memberSlug?: string | null,
+): Promise<Payee | null> {
   if (!supabase) {
-    const id = payeeFor(method);
+    const id = memberSlug ?? payeeFor(method);
     const local = id ? accountOf(id, method) : undefined;
-    if (!id || !local) return null;
+    if (!id || !local || !local.approved || !local.qr) return null;
     return {
       memberId: id,
       memberName: memberOf(id)?.name ?? id,
@@ -257,7 +341,10 @@ export async function findPayee(method: string): Promise<Payee | null> {
     };
   }
 
-  const { data, error } = await supabase.rpc('payee_for', { p_method: method });
+  const { data, error } = memberSlug
+    ? await supabase.rpc('payee_of', { p_method: method, p_member: memberSlug })
+    : await supabase.rpc('payee_for', { p_method: method });
+
   if (error) {
     console.error('[payaccounts] could not find a payee:', error.message);
     return null;

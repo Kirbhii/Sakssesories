@@ -14,6 +14,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   MEMBERS,
+  setCredited,
   setRoster,
   type Member,
   type MemberRole,
@@ -21,7 +22,7 @@ import {
 import { loadAccounts } from '@/lib/payaccounts';
 import { localProfile } from '@/lib/profile';
 import { loadProduction } from '@/lib/production';
-import { loadSales } from '@/lib/sales';
+import { creditedByMember, loadCredited, loadSales } from '@/lib/sales';
 import { supabase, type ProfileRow } from '@/lib/supabase';
 
 const STORAGE_KEY = 'skph.session';
@@ -99,10 +100,16 @@ async function memberFromAuth(userId: string): Promise<Member | null> {
  * the quota split, the member picker and the Users list are all correct on the
  * first render.
  *
- * A failed read changes nothing — the four in `quota.ts` stay as the fallback.
+ * A failed read changes nothing — the seventeen in `quota.ts` stay as the
+ * fallback.
  */
 async function loadRoster(): Promise<void> {
-  if (!supabase) return;
+  if (!supabase) {
+    // Offline the ledger is the only record there is, so the counts come from
+    // it directly.
+    setCredited(creditedByMember());
+    return;
+  }
   const { data, error } = await supabase
     .from('profiles')
     .select('slug, full_name, role, department, active')
@@ -121,6 +128,10 @@ async function loadRoster(): Promise<void> {
       credited: 0,
     })),
   );
+
+  // After the roster, not before: `setRoster` hands out fresh members with
+  // the count back at zero.
+  setCredited(await loadCredited());
 }
 
 /** The dev stand-in: a member id remembered in localStorage. */

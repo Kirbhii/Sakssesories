@@ -16,7 +16,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { engravingFee } from './data';
-import { supabase, type SaleRow, type SaleStatus } from './supabase';
+import { supabase, type SaleRow, type SaleStatus, type CreditedRow } from './supabase';
 
 export type Range = 'today' | 'week' | 'month' | 'all';
 /**
@@ -615,6 +615,51 @@ export function useLedger(): number {
 /** Just one person's rows. */
 export const salesOf = (staffId: string): Sale[] =>
   allSales().filter((s) => s.staffId === staffId);
+
+/**
+ * How many pieces each person has been credited with this month, counted from
+ * the rows in front of us.
+ *
+ * `staffId` is whose book the sale is in, and for a customer order that IS the
+ * person it was credited to, so this is the credited count. Voided rows are
+ * mistakes, not business, and do not count.
+ *
+ * Offline this is the whole truth. With a database it is only what the
+ * signed-in member is allowed to see — so the real number comes from
+ * `loadCredited()` below, which asks the database.
+ */
+export function creditedByMember(rows: Sale[] = allSales()): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const s of rows) {
+    if (s.status === 'void') continue;
+    if (!inRange(s.ago, 'month')) continue;
+    out[s.staffId] = (out[s.staffId] ?? 0) + s.qty;
+  }
+  return out;
+}
+
+/**
+ * The month's credited count for every person, from the database.
+ *
+ * A member may only read their own book, so the app cannot work out the whole
+ * team's numbers — the database can. The quota rings are drawn from this, and
+ * so is the "who has sold the fewest" rule that decides where a customer
+ * order lands.
+ */
+export async function loadCredited(): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  if (!supabase) return out;
+
+  const { data, error } = await supabase.rpc('credited_this_month');
+  if (error) {
+    console.error('[sales] could not read the month counts:', error.message);
+    return out;
+  }
+  for (const row of (data as CreditedRow[] | null) ?? []) {
+    out[row.member_slug] = Number(row.pieces ?? 0);
+  }
+  return out;
+}
 
 /** How many distinct orders (OR numbers) a set of lines covers. */
 export const orderCount = (rows: Sale[]): number => new Set(rows.map((s) => s.orNo)).size;

@@ -408,16 +408,102 @@ grant execute on function public.production_sold(date, date) to authenticated;
 -- ════════════════════════════════════════════════════════════════════════════
 -- The one thing a customer is allowed to ask
 -- ════════════════════════════════════════════════════════════════════════════
--- Given a payment method, hand back the single account the customer should pay:
--- among members who published an APPROVED code for it, one row, nothing else.
--- Only the fields the payer has to see are returned — no listing, no other
--- members' accounts, no sales figures.
+-- A signed-out customer can buy from anybody on the roster. They get to pick a
+-- name they know, and the order goes to that person — and the code they are
+-- shown is that person's own code, because the database is the one that hands
+-- it over. The browser cannot swap it for somebody else's.
 --
--- NOTE ON THE PICK: the real rule is "whoever needs it most", which needs the
--- quota and the credited count — neither is in the database yet. Until they are,
--- this returns the first approved account in slug order, which is the same
--- answer today because every member is on zero. When the quota moves server-side
--- this ORDER BY becomes the needOf ranking and the app stops choosing at all.
+-- Three functions do the work:
+--
+--   payees_for(method)     the names on the roster, and who has a code
+--   payee_of(method, who)  one person's code, and nothing else
+--   payee_for(method)      the default: the fewest sales this month
+--
+-- All three are SECURITY DEFINER — they are the only door open to a customer,
+-- and they give back exactly one thing: a name, or a code.
+
+-- ── Who can I buy from? ─────────────────────────────────────────────────────
+-- Names only. No account numbers, no codes, no sales figures — a customer
+-- gets to say WHO, not to go through the list of accounts.
+--
+-- The order is the fewest pieces sold this month, so the top of the list is
+-- the person who needs the sale most — the same answer the default gives.
+create or replace function public.payees_for(p_method text)
+returns table (
+  member_slug text,
+  member_name text,
+  has_code    boolean
+)
+language sql stable security definer set search_path = public
+as $$
+  with sold as (
+    select s.staff_slug, sum(s.qty)::bigint as pieces
+    from public.sales s
+    where s.status <> 'void'
+      and s.sold_on >= date_trunc('month', current_date)::date
+    group by s.staff_slug
+  )
+  select p.slug as member_slug,
+         p.full_name as member_name,
+         exists (
+           select 1
+           from public.payment_accounts a
+           where a.member_slug = p.slug
+             and a.method = p_method
+             and a.approved
+             and a.qr is not null
+         ) as has_code
+  from public.profiles p
+  left join sold on sold.staff_slug = p.slug
+  where p.active
+  order by coalesce(sold.pieces, 0), p.full_name, p.slug;
+$$;
+
+grant execute on function public.payees_for(text) to anon, authenticated;
+
+-- ── That person's code ──────────────────────────────────────────────────────
+-- Exactly one account, and only if that person has an APPROVED code with a
+-- picture of it for that method. No rows means they cannot take that method,
+-- and the page says so in words rather than showing a code that pays nobody.
+create or replace function public.payee_of(p_method text, p_member text)
+returns table (
+  member_slug  text,
+  member_name  text,
+  method       text,
+  label        text,
+  account_name text,
+  account_number text,
+  qr           text
+)
+language sql stable security definer set search_path = public
+as $$
+  select p.slug as member_slug,
+         p.full_name as member_name,
+         a.method as method,
+         a.label as label,
+         a.account_name as account_name,
+         a.account_number as account_number,
+         a.qr as qr
+  from public.payment_accounts a
+  join public.profiles p on p.slug = a.member_slug
+  where a.method = p_method
+    and p.slug = p_member
+    and a.approved
+    and a.qr is not null
+    and p.active
+  limit 1;
+$$;
+
+grant execute on function public.payee_of(text, text) to anon, authenticated;
+
+-- ── The default: whoever has sold the fewest pieces this month ─────────────
+-- The pool is the people who can actually take this method — a customer must
+-- never be pointed at an account that does not exist — and inside that pool
+-- the one with the fewest sales this month wins.
+--
+-- `sales.staff_slug` is whose book the sale is in, and for a customer order
+-- that IS the person it was credited to, so this count is the credited count.
+-- Voided sales do not count: they are mistakes, not business.
 create or replace function public.payee_for(p_method text)
 returns table (
   member_slug  text,
@@ -430,18 +516,58 @@ returns table (
 )
 language sql stable security definer set search_path = public
 as $$
-  select p.slug, p.full_name, a.method, a.label, a.account_name, a.account_number, a.qr
-  from payment_accounts a
-  join profiles p on p.slug = a.member_slug
+  with sold as (
+    select s.staff_slug, sum(s.qty)::bigint as pieces
+    from public.sales s
+    where s.status <> 'void'
+      and s.sold_on >= date_trunc('month', current_date)::date
+    group by s.staff_slug
+  )
+  select p.slug as member_slug,
+         p.full_name as member_name,
+         a.method as method,
+         a.label as label,
+         a.account_name as account_name,
+         a.account_number as account_number,
+         a.qr as qr
+  from public.payment_accounts a
+  join public.profiles p on p.slug = a.member_slug
+  left join sold on sold.staff_slug = p.slug
   where a.method = p_method
     and a.approved
     and a.qr is not null
     and p.active
-  order by p.slug
+  order by coalesce(sold.pieces, 0), p.slug
   limit 1;
 $$;
 
 grant execute on function public.payee_for(text) to anon, authenticated;
+
+-- ── How much each person has sold this month ────────────────────────────────
+-- The screens show a quota ring per person, and they used to show nothing at
+-- all: the roster carried no counts and every person read as zero. This is
+-- the count the ring is drawn from.
+--
+-- Staff only. A customer never sees anybody's numbers.
+create or replace function public.credited_this_month()
+returns table (
+  member_slug text,
+  pieces      bigint
+)
+language sql stable security definer set search_path = public
+as $$
+  select p.slug as member_slug,
+         coalesce(sum(s.qty), 0)::bigint as pieces
+  from public.profiles p
+  left join public.sales s
+    on s.staff_slug = p.slug
+   and s.status <> 'void'
+   and s.sold_on >= date_trunc('month', current_date)::date
+  where p.active
+  group by p.slug;
+$$;
+
+grant execute on function public.credited_this_month() to authenticated;
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- Linking a login to a member
@@ -539,22 +665,41 @@ create trigger on_auth_user_created
   for each row execute function public.link_profile();
 
 -- ════════════════════════════════════════════════════════════════════════════
--- The four people who actually work here
+-- The seventeen people who actually work here
 -- ════════════════════════════════════════════════════════════════════════════
 -- `email` is the join key between a login and this row: it has to be exactly
--- the address the person signs in with, or the link never happens. Gabriel and
--- Maria are on Gmail because those are the logins that actually exist.
+-- the address the person signs in with, or the link never happens. The address
+-- also says what they do — @marketing.com, @production.com, @finance.com,
+-- @gm.com — so the role on the row and the role the trigger would guess are
+-- the same thing.
 --
--- The eighteen names the project started with are gone — they were placeholders
--- nobody could sign in as. To add somebody, add their row here (or with the
--- INSERT in `add-person.sql`) and give them a login in
--- Authentication → Users with the same address. The app reads this table, so
--- there is no list in the code to keep in step.
+-- `slug` is the short id the app stores in sales, codes and production rows.
+-- It is the last name, because that is what the sign-up trigger derives from
+-- the address. Jheff is the one exception: he already has a row called 'jheff'
+-- and his QR codes and his sales hang off it, so changing the slug would drag
+-- them out from under him.
+--
+-- The app reads this table, so there is no list in the code to keep in step.
+-- To add somebody, add their row here (or with the INSERT in `add-person.sql`)
+-- and give them a login in Authentication → Users with the same address.
 insert into public.profiles (slug, email, full_name, role, department) values
-  ('gabriel', 'gm@gmail.com',                   'Gabriel Tan',     'gm',         'finance'),
-  ('maria',   'finance@gmail.com',              'Maria Santos',    'finance',    'finance'),
-  ('jheff',   'jheff@gmail.com',                'Jheff',           'marketing',  'marketing'),
-  ('carlo',   'carlo.reyes@saksesories.ph',     'Carlo Reyes',     'production', 'production')
+  ('jheff',       'reloba@marketing.com',     'Jheff Cyril Reloba',    'marketing',  'marketing'),
+  ('lenon',       'lenon@marketing.com',      'Crystler Lenon',        'marketing',  'marketing'),
+  ('carino',      'carino@marketing.com',     'Richelle Cariño',       'marketing',  'marketing'),
+  ('evangelista', 'evangelista@marketing.com', 'Juliana Evangelista',    'marketing',  'marketing'),
+  ('yu',          'yu@marketing.com',         'Stephen Aaron Yu',      'marketing',  'marketing'),
+  ('nisnisan',    'nisnisan@marketing.com',   'Arian Nisnisan',         'marketing',  'marketing'),
+  ('pastor',      'pastor@production.com',    'Regine Pastor',         'production', 'production'),
+  ('branda',      'branda@production.com',    'Angel Laila Branda',    'production', 'production'),
+  ('valdez',      'valdez@production.com',    'Hazel Ann Valdez',      'production', 'production'),
+  ('germones',    'germones@production.com',  'Sean Matthew Germones', 'production', 'production'),
+  ('flores',      'flores@production.com',    'Tom Christofer Flores', 'production', 'production'),
+  ('alnin',       'alnin@production.com',     'Ronnielyn Alnin',       'production', 'production'),
+  ('batalla',     'batalla@production.com',   'Janel Batalla',         'production', 'production'),
+  ('galicia',     'galicia@production.com',   'Maria Justine Galicia', 'production', 'production'),
+  ('gapusan',     'gapusan@finance.com',      'Joseph Farrel Gapusan', 'finance',    'finance'),
+  ('nevero',      'nevero@finance.com',       'John Vincent Nevero',   'finance',    'finance'),
+  ('dupaya',      'dupaya@gm.com',            'John Paul Dupaya',      'gm',         'finance')
 on conflict (slug) do nothing;
 
 -- ─── Link the logins that were already there ────────────────────────────────

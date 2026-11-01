@@ -141,3 +141,27 @@ export interface PayeeRow {
   account_number: string;
   qr: string | null;
 }
+
+/**
+ * What `payees_for(method)` hands back: the names on the roster, so a customer
+ * can pick somebody they know. Names only — no account numbers, no codes.
+ *
+ * `has_code` says whether that person has an approved code for this method.
+ * It lets the page say "Jheff has no GCash code yet" instead of letting the
+ * customer walk into a dead end.
+ */
+export interface PayeeListRow {
+  member_slug: string;
+  member_name: string;
+  has_code: boolean;
+}
+
+/**
+ * What `credited_this_month()` hands back: how many pieces each person has
+ * been credited with this month. Staff only.
+ */
+export interface CreditedRow {
+  member_slug: string;
+  /** `sum(qty)` comes back as a bigint, which the client hands over as a string. */
+  pieces: number | string;
+}

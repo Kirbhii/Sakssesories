@@ -68,19 +68,40 @@ export const PLAN: QuotaPlan = {
 };
 
 // ── The roster ──────────────────────────────────────────────────────────────
-// These four are the people who work here, and they are also the fallback: on a
+// These are the people who work here, and they are also the fallback: on a
 // fresh clone with no database the app still has somebody to show. Once the
 // database answers, `setRoster` replaces this list wholesale with whatever is
 // really in `public.profiles` — so adding a person is a row in that table, not
 // an edit here and a redeploy.
 //
-// Keep this list identical to the seed in `supabase/schema.sql`. If the two
-// drift, the offline build shows one thing and the live shop another.
+// Keep this list identical to the seed in `supabase/schema.sql` and to
+// `supabase/roster-2026.sql`. If the three drift, the offline build shows one
+// thing and the live shop another.
+//
+// The slug is the last name, because that is what the sign-up trigger derives
+// from the address. Jheff is the one exception — he already has a row called
+// 'jheff' and his QR codes and his sales hang off it.
+//
+// The order is by department: the GM, then Finance, then Marketing, then
+// Production. It is the order the Users screen lists them in.
 export const MEMBERS: Member[] = [
-  { id: 'gabriel', name: 'Gabriel Tan', role: 'gm', department: 'finance', active: true, rungUp: 0, credited: 0 },
-  { id: 'maria', name: 'Maria Santos', role: 'finance', department: 'finance', active: true, rungUp: 0, credited: 0 },
-  { id: 'jheff', name: 'Jheff', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
-  { id: 'carlo', name: 'Carlo Reyes', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'dupaya', name: 'John Paul Dupaya', role: 'gm', department: 'finance', active: true, rungUp: 0, credited: 0 },
+  { id: 'gapusan', name: 'Joseph Farrel Gapusan', role: 'finance', department: 'finance', active: true, rungUp: 0, credited: 0 },
+  { id: 'nevero', name: 'John Vincent Nevero', role: 'finance', department: 'finance', active: true, rungUp: 0, credited: 0 },
+  { id: 'jheff', name: 'Jheff Cyril Reloba', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'lenon', name: 'Crystler Lenon', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'carino', name: 'Richelle Cariño', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'evangelista', name: 'Juliana Evangelista', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'yu', name: 'Stephen Aaron Yu', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'nisnisan', name: 'Arian Nisnisan', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'pastor', name: 'Regine Pastor', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'branda', name: 'Angel Laila Branda', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'valdez', name: 'Hazel Ann Valdez', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'germones', name: 'Sean Matthew Germones', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'flores', name: 'Tom Christofer Flores', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'alnin', name: 'Ronnielyn Alnin', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'batalla', name: 'Janel Batalla', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
+  { id: 'galicia', name: 'Maria Justine Galicia', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
 ];
 
 /** Whoever is signed in. Pinned to the header chip until auth exists. */
@@ -146,6 +167,20 @@ export function setRoster(list: Member[]): void {
   if (!list.length) return;
   MEMBERS.splice(0, MEMBERS.length, ...list);
   rebuild();
+}
+
+/**
+ * Write this month's piece counts onto the roster.
+ *
+ * `credited` is how many pieces are counted against a person's quota this
+ * month. It is not stored anywhere else — the counts come from the ledger, and
+ * the roster only carries them so the screens can draw a ring.
+ *
+ * It has to be called AFTER `setRoster`, because that hands out fresh members
+ * with the count back at zero.
+ */
+export function setCredited(counts: Record<string, number>): void {
+  for (const m of MEMBERS) m.credited = counts[m.id] ?? 0;
 }
 
 /** This member's share. Derived from the department, never stored. */

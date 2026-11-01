@@ -15,11 +15,13 @@ import {
 import {
   accountOf,
   findPayee,
+  listPayees,
   methodLabel,
   methodsInUse,
   useAccounts,
   type PayCode,
   type Payee,
+  type PayeeChoice,
 } from '@/lib/payaccounts';
 import { PLAN, barWidth, creditRecipient, memberOf, quotaOf, roomOf } from '@/lib/quota';
 import { formatPhone, isValidPhone, phoneDigits } from '@/lib/profile';
@@ -236,12 +238,41 @@ export default function Pos() {
 
   // ── The customer's payee ──────────────────────────────────────────────────
   // Staff already know whose account the money comes into — their own. A
-  // customer has nobody at the counter, so the account has to be asked for, and
-  // it is the database that answers: `payee_for(method)` hands back one
-  // approved account and nothing else. This page never picks the member, and
-  // never sees the rest of the table.
+  // customer has nobody at the counter, so the account has to be asked for.
+  //
+  // Two questions, and the database answers both:
+  //
+  //   payees_for(method)     who can this customer buy from? Names only.
+  //   payee_of(method, who)  that person's own account — or payee_for(method)
+  //                           for the default, whoever has sold the fewest
+  //                           pieces this month.
+  //
+  // This page never picks the member and never sees the rest of the table. It
+  // asks for a name and shows whatever comes back, so the code the customer
+  // scans and the person the order is credited to are the same person by
+  // construction — the browser cannot swap one for the other.
   const [payee, setPayee] = useState<Payee | null>(null);
   const [payeeBusy, setPayeeBusy] = useState(false);
+  // '' means nobody was picked: the order goes to whoever needs it most.
+  const [payeeChoice, setPayeeChoice] = useState('');
+  const [choices, setChoices] = useState<PayeeChoice[]>([]);
+
+  // The list of names. It changes with the method, because who can take
+  // GCash is not the same list as who can take Maya.
+  useEffect(() => {
+    if (isStaff || payment === 'cash') {
+      setChoices([]);
+      return;
+    }
+    let alive = true;
+    void listPayees(payment).then((rows) => {
+      if (!alive) return;
+      setChoices(rows);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [isStaff, payment]);
 
   useEffect(() => {
     if (isStaff || payment === 'cash') {
@@ -251,7 +282,7 @@ export default function Pos() {
     }
     let alive = true;
     setPayeeBusy(true);
-    void findPayee(payment).then((found) => {
+    void findPayee(payment, payeeChoice || null).then((found) => {
       if (!alive) return;
       setPayee(found);
       setPayeeBusy(false);
@@ -259,7 +290,7 @@ export default function Pos() {
     return () => {
       alive = false;
     };
-  }, [isStaff, payment]);
+  }, [isStaff, payment, payeeChoice]);
 
   const recipient = member ? creditRecipient(member.id) : null;
   // The order lands in the book of whoever receives the money, so that the QR
@@ -280,6 +311,11 @@ export default function Pos() {
     : (payee ?? undefined);
   const payCode = shown?.qr ?? null;
   const payeeName = member ? member.name : payee?.memberName;
+  // The name the customer picked, when it is not the default. Used to say why
+  // there is no code, instead of blaming the whole team.
+  const pickedName = payeeChoice
+    ? (choices.find((c) => c.memberId === payeeChoice)?.memberName ?? null)
+    : null;
   // A customer cannot send money to an account that does not exist yet, so the
   // order is held. Staff get a nudge instead — they can always collect another
   // way, and the sale still has to be recorded.
@@ -994,10 +1030,44 @@ export default function Pos() {
               </div>
 
               {!isStaff && (
-                <p className="mt-1.5 text-[9px] leading-[1.5] text-ink-300">
-                  Cash is for staff selling on-site. Choose an e-money method and the code below is
-                  the account your payment goes to.
-                </p>
+                <>
+                  <p className="mt-1.5 text-[9px] leading-[1.5] text-ink-300">
+                    Cash is for staff selling on-site. Choose an e-money method and the code below is
+                    the account your payment goes to.
+                  </p>
+
+                  {/* Who the customer is buying from. Nobody picked means the
+                      team member who has sold the fewest pieces this month,
+                      which is who the shop needs the sale to go to. */}
+                  {payment !== 'cash' && (
+                    <div className="mt-2.5">
+                      <label className="block">
+                        <span className="mb-1 block text-[8px] uppercase tracking-[0.15em] text-ink-300">
+                          Who are you buying from?
+                        </span>
+                        <select
+                          value={payeeChoice}
+                          onChange={(e) => setPayeeChoice(e.target.value)}
+                          aria-label="Who are you buying from"
+                          className={inputClass}
+                        >
+                          <option value="">Anyone — whoever needs it most</option>
+                          {choices.map((c) => (
+                            <option key={c.memberId} value={c.memberId}>
+                              {c.memberName}
+                              {c.hasCode ? '' : ` — no ${methodLabel(payment)} code`}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <p className="mt-1 block text-[8.5px] leading-[1.5] text-ink-300">
+                        Know somebody on the team? Pick them and the order goes to them. Not sure?
+                        Leave it on Anyone and it goes to whoever has sold the fewest pieces this
+                        month.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* The scan-to-pay panel. Whose code it is depends on who is
@@ -1050,7 +1120,9 @@ export default function Pos() {
                       <p className="mt-1 text-[10px] leading-[1.55] text-ink-900">
                         {isStaff
                           ? `You have no ${methodLabel(payment)} code yet.`
-                          : `Nobody on the team takes ${methodLabel(payment)} yet.`}
+                          : pickedName
+                            ? `${pickedName} has no ${methodLabel(payment)} code yet.`
+                            : `Nobody on the team takes ${methodLabel(payment)} yet.`}
                       </p>
                       <p className="mt-1 text-[9px] leading-[1.5] text-ink-500">
                         {isStaff ? (
@@ -1061,6 +1133,8 @@ export default function Pos() {
                             </Link>
                             , or collect another way and record the sale.
                           </>
+                        ) : pickedName ? (
+                          'Pick somebody else above, or choose Anyone so whoever needs the sale most can take it.'
                         ) : (
                           'Choose another method, or pay cash at the shop.'
                         )}
@@ -1202,7 +1276,9 @@ export default function Pos() {
 
             {payBlocked && (
               <p className="mt-2 text-[9.5px] text-ink-300">
-                Pick another payment method, or pay cash at the shop.
+                {pickedName
+                  ? 'Pick somebody else above, or choose Anyone so whoever needs the sale most can take it.'
+                  : 'Pick another payment method, or pay cash at the shop.'}
               </p>
             )}
 

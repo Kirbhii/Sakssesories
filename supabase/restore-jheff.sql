@@ -21,7 +21,8 @@ select email,
        email_confirmed_at is not null as confirmed,
        created_at
   from auth.users
- where lower(email) like 'jheff%'
+ where lower(email) like 'reloba%'
+    or lower(email) like 'jheff%'
  order by created_at;
 
 -- ── (A) Confirm the address ────────────────────────────────────────────────
@@ -32,13 +33,15 @@ select email,
 -- so the confirmation can never arrive on its own — it has to be set here.
 update auth.users
    set email_confirmed_at = coalesce(email_confirmed_at, now())
- where lower(email) = 'jheff@marketing.com';
+ where lower(email) = 'reloba@marketing.com';
 
 -- ── (B) Rebuild the roster row and link it to that login ───────────────────
+-- The slug is 'jheff' on purpose: it is the row his QR codes and his sales
+-- already hang off, and changing it would drag them out from under him.
 insert into public.profiles (slug, full_name, email, role, department, auth_id)
-select 'jheff', 'Jheff', 'jheff@marketing.com', 'marketing', 'marketing', u.id
+select 'jheff', 'Jheff Cyril Reloba', 'reloba@marketing.com', 'marketing', 'marketing', u.id
   from auth.users u
- where lower(u.email) = 'jheff@marketing.com'
+ where lower(u.email) = 'reloba@marketing.com'
    and not exists (select 1 from public.profiles p where p.slug = 'jheff');
 
 -- If the row came back some other way (the trigger got there first) but is not
@@ -46,7 +49,7 @@ select 'jheff', 'Jheff', 'jheff@marketing.com', 'marketing', 'marketing', u.id
 update public.profiles p
    set auth_id = u.id
   from auth.users u
- where lower(u.email) = 'jheff@marketing.com'
+ where lower(u.email) = 'reloba@marketing.com'
    and p.slug = 'jheff'
    and p.auth_id is null;
 
