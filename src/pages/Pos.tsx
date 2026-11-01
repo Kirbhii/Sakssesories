@@ -22,6 +22,7 @@ import {
   type Payee,
 } from '@/lib/payaccounts';
 import { PLAN, barWidth, creditRecipient, memberOf, quotaOf, roomOf } from '@/lib/quota';
+import { formatPhone, isValidPhone, phoneDigits } from '@/lib/profile';
 import { allSales, recordSales, type Sale } from '@/lib/sales';
 
 type PaymentMethod = string;
@@ -88,6 +89,22 @@ interface Details {
   email: string;
   fulfilment: Fulfilment;
   note: string;
+}
+
+/**
+ * What the customer is left holding. Taken as a snapshot at the moment the
+ * order saves, because the cart is cleared straight afterwards — reading from
+ * `cart` in the panel would render an empty receipt.
+ */
+interface Receipt {
+  orNo: string;
+  name: string;
+  mobile: string;
+  lines: { label: string; qty: number; cents: number }[];
+  total: number;
+  pay: string;
+  payRef: string | null;
+  where: string;
 }
 
 /** A numbered step heading — "01 / Choose your shape". */
@@ -159,6 +176,7 @@ export default function Pos() {
   // cash there is nothing to look up, because the notes are in the drawer.
   const [ref, setRef] = useState('');
   const [done, setDone] = useState(false);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   // One OR number per order — all cart lines share it.
@@ -396,13 +414,40 @@ export default function Pos() {
     }
 
     setDone(true);
-    window.setTimeout(() => {
-      setDone(false);
-      setCart([]);
-      setEngraving('');
-      setRef('');
-      setOrNo(nextOrNo());
-    }, 1400);
+    // Snapshot first: the panel below reads from `receipt`, not from `cart`,
+    // because the cart is cleared when the next order starts.
+    const digits = phoneDigits(details.mobile);
+    setReceipt({
+      orNo,
+      name: details.name.trim(),
+      // Grouped the way it is written on a form. An unbroken 09171234567 is the
+      // hardest thing on the receipt to check digit by digit.
+      mobile: isValidPhone(digits) ? formatPhone(digits) : details.mobile.trim(),
+      lines: cart.map((l) => ({
+        label: `${l.shapeName} / ${l.colourName}`,
+        qty: l.qty,
+        cents: l.unit * l.qty,
+      })),
+      total,
+      pay: payment === 'cash' ? 'Cash' : methodLabel(payment),
+      payRef: payment === 'cash' ? null : ref.trim(),
+      where: details.fulfilment === 'delivery' ? 'Delivery' : 'Store pickup',
+    });
+  }
+
+  /**
+   * Clears the till for the next customer. Deliberately does NOT clear the name
+   * and mobile: the panel is gone by the time this runs, so nothing carries over
+   * on screen, and staff often ring up two orders for the same person.
+   */
+  function startNew() {
+    setReceipt(null);
+    setDone(false);
+    setCart([]);
+    setEngraving('');
+    setRef('');
+    setSaveError('');
+    setOrNo(nextOrNo());
   }
 
   const lineCount = cart.reduce((sum, l) => sum + l.qty, 0);
@@ -705,6 +750,87 @@ export default function Pos() {
 
           {/* ── Collection ──────────────────────────────────────────────── */}
           <aside className="sticky top-[76px] max-h-[calc(100vh-76px)] min-h-[calc(100vh-76px)] overflow-y-auto border-l border-blush-300 bg-white px-[22px] pb-7 pt-6 max-xl:static max-xl:min-h-0 max-xl:border-l-0 max-xl:border-t">
+            {receipt ? (
+              /* The moment after the order is sent. The OR number used to flash
+                 past as 9px grey text and then vanish with the cart — the
+                 customer left with nothing to quote. Here it is the largest
+                 thing on the screen and the only way forward is a button that
+                 says it is safe to close. */
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-ok-100 text-ok-600">
+                    <svg viewBox="0 0 14 14" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.7">
+                      <path d="M2.6 7.3 5.6 10.3 11.4 3.9" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <h2 className="text-[17px]">{isStaff ? 'Sale recorded' : 'Order sent'}</h2>
+                </div>
+
+                <div className="mt-4 rounded-[9px] border border-blush-300 bg-blush-50 px-4 py-4 text-center">
+                  <p className="text-[8px] uppercase tracking-[0.18em] text-ink-300">
+                    {isStaff ? 'OR number' : 'Your order number'}
+                  </p>
+                  <p className="num mt-1.5 text-[30px] font-medium leading-none tracking-[0.03em] text-ink-900">
+                    {receipt.orNo}
+                  </p>
+                  <p className="mx-auto mt-2.5 max-w-[26ch] text-[9.5px] leading-[1.55] text-ink-500">
+                    Keep this number. The team asks for it when you claim the order.
+                  </p>
+                </div>
+
+                <dl className="mt-4 border-t border-blush-300/60 text-[10px]">
+                  {[
+                    ['Name', receipt.name],
+                    ['Mobile', receipt.mobile],
+                    ['Fulfilment', receipt.where],
+                    ['Payment', receipt.pay],
+                    ...(receipt.payRef ? [['Reference', receipt.payRef]] : []),
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-3 py-[5px]">
+                      <dt className="text-ink-300">{k}</dt>
+                      <dd className="text-right text-ink-900">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+
+                <div className="mt-3 border-t border-blush-300/60 pt-2">
+                  {receipt.lines.map((l, i) => (
+                    <div key={i} className="flex justify-between gap-3 py-[4px] text-[10px]">
+                      <span className="text-ink-500">
+                        {l.label}
+                        {l.qty > 1 ? ` × ${l.qty}` : ''}
+                      </span>
+                      <span className="num flex-none text-ink-900">{peso(l.cents)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-2 flex items-baseline justify-between border-t border-blush-300 pt-2.5">
+                  <span className="text-[12px] font-medium text-ink-900">Order total</span>
+                  <span className="num text-[18px]">{peso(receipt.total)}</span>
+                </div>
+
+                {receipt.where === 'Delivery' && (
+                  <p className="mt-2 text-[9px] leading-[1.55] text-ink-300">
+                    Shipping fee only is COD, paid to the courier on delivery — not included above.
+                  </p>
+                )}
+
+                <p className="mt-3 rounded-[5px] bg-blush-50 px-2.5 py-2 text-[9px] leading-[1.55] text-ink-500">
+                  {receipt.pay === 'Cash'
+                    ? 'Paid in cash at the counter.'
+                    : 'This payment is checked against the account before the order moves. The team will text you if anything is short.'}
+                </p>
+
+                <button
+                  onClick={startNew}
+                  className="mt-4 w-full justify-center rounded-pill bg-crimson-600 px-[18px] py-3 text-[11.5px] font-medium text-white transition-colors hover:bg-wine-800"
+                >
+                  {isStaff ? 'Start a new order' : 'Done'}
+                </button>
+              </div>
+            ) : (
+              <>
             <div className="flex items-baseline justify-between gap-2.5">
               <h2 className="text-[17px]">Your little collection</h2>
               <span className="rounded-pill bg-blush-100 px-2 py-[3px] text-[9px] text-ink-500">
@@ -1078,6 +1204,8 @@ export default function Pos() {
             <p className="mt-2.5 text-[9px] leading-[1.6] text-ink-300">
               Need a hand? Ask the team on duty.
             </p>
+              </>
+            )}
           </aside>
         </div>
       </main>
