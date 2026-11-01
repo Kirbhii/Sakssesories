@@ -503,17 +503,27 @@ export interface TrackedOrder {
 }
 
 /**
+ * The three things a lookup can come back with. "No such order" and "the shop
+ * has not switched tracking on yet" must not look the same to the customer —
+ * one is their mistake, the other is ours.
+ */
+export type TrackResult =
+  | { status: 'found'; order: TrackedOrder }
+  | { status: 'missing' }
+  | { status: 'unavailable' };
+
+/**
  * Look up one order from the two things the buyer knows: the number and their
- * mobile. Returns `null` for "no such order" — which is also what a wrong
- * mobile looks like, on purpose: a different answer for "no such number" would
- * turn the page into a way to discover which order numbers exist.
+ * mobile. A wrong mobile returns `missing`, exactly like a number that does not
+ * exist — a different answer would turn the page into a way to discover which
+ * order numbers are real.
  *
  * Signed out, this is an anonymous RPC. The table itself stays closed.
  */
-export async function trackOrder(orNo: string, mobile: string): Promise<TrackedOrder | null> {
+export async function trackOrder(orNo: string, mobile: string): Promise<TrackResult> {
   const or = orNo.trim();
   const digits = mobile.replace(/\D/g, '');
-  if (!or || !digits) return null;
+  if (!or || !digits) return { status: 'missing' };
 
   if (!supabase) {
     // Offline stand-in: the same two keys, read off the local ledger.
@@ -523,9 +533,11 @@ export async function trackOrder(orNo: string, mobile: string): Promise<TrackedO
         (s.mobile ?? '').replace(/\D/g, '') === digits &&
         s.status !== 'void',
     );
-    if (!rows.length) return null;
+    if (!rows.length) return { status: 'missing' };
     const first = rows[0];
     return {
+      status: 'found',
+      order: {
       orNo: or,
       placedOn: dateOf(first.ago),
       customer: first.customer,
@@ -536,19 +548,24 @@ export async function trackOrder(orNo: string, mobile: string): Promise<TrackedO
       stage: first.stage,
       pieces: rows.reduce((n, s) => n + s.qty, 0),
       cents: rows.reduce((n, s) => n + s.cents, 0),
-      items: rows.map((s) => `${s.variant} × ${s.qty}`).join(', '),
+        items: rows.map((s) => `${s.variant} × ${s.qty}`).join(', '),
+      },
     };
   }
 
   const { data, error } = await supabase.rpc('track_order', { p_or: or, p_mobile: digits });
   if (error) {
     console.error('[sales] could not look the order up:', error.message);
-    return null;
+    // PGRST202 is PostgREST's "no such function". That is not the customer's
+    // fault and must not be reported as "no order matches".
+    return { status: error.code === 'PGRST202' ? 'unavailable' : 'missing' };
   }
   const row = Array.isArray(data) ? data[0] : null;
-  if (!row) return null;
+  if (!row) return { status: 'missing' };
 
   return {
+    status: 'found',
+    order: {
     orNo: row.or_no,
     placedOn: row.placed_on,
     customer: row.customer,
@@ -559,7 +576,8 @@ export async function trackOrder(orNo: string, mobile: string): Promise<TrackedO
     stage: (row.stage as Stage) ?? 'placed',
     pieces: row.pieces ?? 0,
     cents: row.cents ?? 0,
-    items: row.items ?? '',
+      items: row.items ?? '',
+    },
   };
 }
 

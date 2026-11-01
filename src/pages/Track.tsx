@@ -8,6 +8,7 @@ import {
   payLabel,
   stageTrack,
   trackOrder,
+  type TrackResult,
   type TrackedOrder,
 } from '@/lib/sales';
 
@@ -29,18 +30,15 @@ export default function Track() {
   const [orNo, setOrNo] = useState('');
   const [mobile, setMobile] = useState('');
   const [busy, setBusy] = useState(false);
-  const [tried, setTried] = useState(false);
-  const [order, setOrder] = useState<TrackedOrder | null>(null);
+  const [result, setResult] = useState<TrackResult | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
     setBusy(true);
-    setTried(false);
-    const found = await trackOrder(orNo, mobile);
-    setOrder(found);
+    setResult(null);
+    setResult(await trackOrder(orNo, mobile));
     setBusy(false);
-    setTried(true);
   }
 
   const field =
@@ -102,14 +100,21 @@ export default function Track() {
           </p>
         </form>
 
-        {tried && !order && (
+        {result?.status === 'missing' && (
           <p className="mt-4 rounded-[6px] border border-blush-300 bg-white px-4 py-3 text-[11px] leading-[1.6] text-ink-500">
             No order matches that number and mobile. Check the number on your receipt — it is the
-            seven digits above the date — and that the mobile is the one you gave at the till.
+            digits above the date — and that the mobile is the one you gave at the till.
           </p>
         )}
 
-        {order && <OrderCard order={order} />}
+        {result?.status === 'unavailable' && (
+          <p className="mt-4 rounded-[6px] border border-blush-300 bg-white px-4 py-3 text-[11px] leading-[1.6] text-ink-500">
+            Tracking is not switched on yet. This is our side, not yours — ask the team to look the
+            order up by your name in the meantime.
+          </p>
+        )}
+
+        {result?.status === 'found' && <OrderCard order={result.order} />}
 
         <p className="mt-6 text-[10px] text-ink-300">
           <Link to="/" className="underline underline-offset-2">
