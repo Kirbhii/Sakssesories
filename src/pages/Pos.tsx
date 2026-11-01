@@ -773,8 +773,13 @@ export default function Pos() {
                   <p className="num mt-1.5 text-[30px] font-medium leading-none tracking-[0.03em] text-ink-900">
                     {receipt.orNo}
                   </p>
-                  <p className="mx-auto mt-2.5 max-w-[26ch] text-[9.5px] leading-[1.55] text-ink-500">
-                    Keep this number. The team asks for it when you claim the order.
+                  <p className="mx-auto mt-2.5 text-[9.5px] leading-[1.55] text-ink-500">
+                    <span className="block text-[10px] font-medium text-ink-900">
+                      {isStaff
+                        ? 'The customer needs this number to track the order.'
+                        : 'You need this number to track your order.'}
+                    </span>
+                    Save it or take a photo. It is also what the team asks for when you claim.
                   </p>
                 </div>
 
