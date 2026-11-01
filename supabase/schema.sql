@@ -255,6 +255,94 @@ drop policy if exists sales_money_update on public.sales;
 create policy sales_money_update on public.sales
   for update to authenticated using (is_money()) with check (is_money());
 
+
+-- ─── The price list ─────────────────────────────────────────────────────────
+-- The price lived only in the browser, so the browser decided what a sale cost
+-- and the database wrote down whatever it was told. Anybody with developer
+-- tools — or `curl` — could ring a ₱59 keychain at ₱5.
+--
+-- The list lives here now, and `guard_sale_price` refuses any row that arrives
+-- cheaper than it. `label` is exactly what `sales.variant` holds, so there is
+-- no mapping to keep in step. These rows must agree with `SHAPES` and `COLOURS`
+-- in src/lib/data.ts; lowering a price here is a deliberate act, and lowering
+-- one only in the app makes the till refuse that variant.
+create table if not exists public.variants (
+  label   text primary key,
+  shape   text not null,
+  colour  text not null,
+  price   integer not null check (price >= 0)
+);
+
+-- No grants: only the guard reads it, and it runs as its owner.
+revoke all on public.variants from anon, authenticated;
+
+insert into public.variants (label, shape, colour, price) values
+  ('Heart / Navy blue',   'Heart',    'Navy blue', 5900),
+  ('Heart / Tan',         'Heart',    'Tan',       5900),
+  ('Heart / Pink',        'Heart',    'Pink',      5900),
+  ('Heart / Maroon',      'Heart',    'Maroon',    5900),
+  ('Heart / Purple',      'Heart',    'Purple',    5900),
+  ('Heart / Black',       'Heart',    'Black',     5900),
+  ('Teardrop / Navy blue','Teardrop', 'Navy blue', 5900),
+  ('Teardrop / Tan',      'Teardrop', 'Tan',       5900),
+  ('Teardrop / Pink',     'Teardrop', 'Pink',      5900),
+  ('Teardrop / Maroon',   'Teardrop', 'Maroon',    5900),
+  ('Teardrop / Purple',   'Teardrop', 'Purple',    5900),
+  ('Teardrop / Black',    'Teardrop', 'Black',     5900)
+on conflict (label) do nothing;
+
+-- The cheapest an honest row can be: the price list plus engraving, times the
+-- pieces. First two letters free, ₱2 each after that — the same rule as
+-- `engravingFee` in data.ts. SECURITY DEFINER so a guest with no rights on
+-- `variants` can still have their price checked; it returns a number, never the
+-- table. Null means the variant is not on the list.
+create or replace function public.sale_min_cents(p_variant text, p_engraving text, p_qty integer)
+returns integer
+language sql stable security definer set search_path = public
+as $$
+  select (
+           v.price
+           + greatest(
+               0,
+               (case
+                  when p_engraving is null or btrim(p_engraving) = '—' then 0
+                  else char_length(p_engraving)
+                end) - 2
+             ) * 200
+         ) * greatest(p_qty, 0)
+  from public.variants v
+  where v.label = p_variant;
+$$;
+
+create or replace function public.guard_sale_price()
+returns trigger
+language plpgsql security definer set search_path = public
+as $$
+declare
+  expected integer;
+begin
+  expected := public.sale_min_cents(new.variant, new.engraving, new.qty);
+
+  if expected is null then
+    raise exception 'That variant is not on the price list: "%".', new.variant
+      using errcode = '23514';
+  end if;
+
+  if new.cents < expected then
+    raise exception 'Underpriced: % × % comes to at least % centavos, not %.',
+      new.qty, new.variant, expected, new.cents
+      using errcode = '23514';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_sale_price on public.sales;
+create trigger guard_sale_price
+  before insert on public.sales
+  for each row execute function public.guard_sale_price();
+
 -- Select only. Roster rows are made by the auto-roster trigger or by hand in
 -- the SQL Editor; a signed-in member has no business inserting one, and there
 -- is no INSERT policy to allow it anyway.

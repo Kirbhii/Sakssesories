@@ -29,6 +29,14 @@ export interface Variant {
   stock: number;
 }
 
+// ─── Prices ─────────────────────────────────────────────────────────────────
+// These numbers are no longer the only copy. The database keeps its own price
+// list (`public.variants`, see `supabase/price-guard.sql`) and refuses any sale
+// that arrives cheaper than it, because a price that lives only in the browser
+// is a price anybody can edit. The copy here is what the screen adds up.
+//
+// So: lowering a price means changing it in BOTH places. Raising it here alone
+// is safe — the guard only ever refuses a number that is too low.
 export const PRODUCT = {
   name: 'ClearChain',
   tagline: 'Sakses anytime, Style anytime',
