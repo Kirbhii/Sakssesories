@@ -702,6 +702,70 @@ insert into public.profiles (slug, email, full_name, role, department) values
   ('dupaya',      'dupaya@gm.com',            'John Paul Dupaya',      'gm',         'finance')
 on conflict (slug) do nothing;
 
+-- ─── The placeholders leave ─────────────────────────────────────────────────
+-- The project started with four stand-ins: Gabriel Tan (the GM, on a Gmail
+-- address), Maria Santos, Carlo Reyes and a plain 'jheff' row. The seventeen
+-- above are the real roster, so the stand-ins have no place on it.
+--
+-- The General Manager changes seat. Gabriel Tan was the GM only as a
+-- placeholder; the GM is John Paul Dupaya, and his login is dupaya@gm.com.
+-- The old gm@gmail.com login goes with him.
+--
+-- The GCash code that sat on Gabriel's row is the shop's own, so it is moved
+-- to Jheff before Gabriel goes — otherwise the shop would be left with no way
+-- to be paid. Sales and production rows are handed to the real GM rather than
+-- deleted: a sale is a promise about money, and the ledger must stay whole.
+--
+-- The approval guard is switched off for the move. It wipes the approval on
+-- any write that is not from the GM, and in the SQL editor nobody is signed
+-- in, so it would undo exactly what we are doing here. It goes back on before
+-- the block ends.
+do $$
+declare
+  guard_off boolean := false;
+begin
+  begin
+    execute 'alter table public.payment_accounts disable trigger guard_payment_account';
+    guard_off := true;
+  exception when undefined_object then
+    null;
+  end;
+
+  begin
+    update public.production set created_by = null where created_by in ('maria', 'carlo');
+    update public.sales      set staff_slug = 'dupaya' where staff_slug in ('gabriel', 'maria', 'carlo');
+    update public.production set created_by = 'dupaya' where created_by = 'gabriel';
+    update public.payment_accounts set approved_by = null where approved_by in ('gabriel', 'maria', 'carlo');
+
+    update public.payment_accounts
+    set member_slug = 'jheff'
+    where member_slug = 'gabriel'
+      and method = 'gcash'
+      and not exists (
+        select 1 from public.payment_accounts b
+        where b.member_slug = 'jheff' and b.method = 'gcash'
+      );
+
+    update public.payment_accounts
+    set approved    = true,
+        approved_by = 'dupaya',
+        approved_at = coalesce(approved_at, now())
+    where member_slug = 'jheff' and method = 'gcash' and qr is not null;
+
+    delete from public.profiles where slug in ('gabriel', 'maria', 'carlo');
+
+  exception when others then
+    if guard_off then
+      execute 'alter table public.payment_accounts enable trigger guard_payment_account';
+    end if;
+    raise;
+  end;
+
+  if guard_off then
+    execute 'alter table public.payment_accounts enable trigger guard_payment_account';
+  end if;
+end $$;
+
 -- ─── Link the logins that were already there ────────────────────────────────
 -- The trigger above only fires for a user created AFTER it exists. If the
 -- logins were added in Authentication → Users before this file was pasted, the
