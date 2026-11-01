@@ -52,7 +52,9 @@ const RAIL: RailItem[] = [
   { label: 'Quota', icon: 'M2.6 13V8.4M6.6 13V5.2M10.6 13V9.2M14 13V3', to: '/portal/quota', roles: ['gm'] },
   {
     label: 'Users',
-    icon: 'M6 5.6a2.4 2.4 0 1 0 0 .1M1.8 13.4c0-2.3 1.9-3.8 4.2-3.8s4.2 1.5 4.2 3.8M11 4.2a2 0 1 1 0 4M11.6 9.8c1.7.3 2.8 1.5 2.8 3.2',
+    // Two heads and a shoulder each. The old path had an arc with six numbers
+    // instead of seven, which is not a shape — it threw on every render.
+    icon: 'M3.6 5.6a2.4 2.4 0 1 0 4.8 0a2.4 2.4 0 1 0-4.8 0M1.8 13.4c0-2.3 1.9-3.8 4.2-3.8s4.2 1.5 4.2 3.8M9.7 4.6a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0-3.6 0M11.6 9.8c1.7.3 2.8 1.5 2.8 3.2',
     to: '/portal/users',
     roles: ['gm'],
   },

@@ -14,6 +14,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   MEMBERS,
+  setRoster,
   type Member,
   type MemberRole,
 } from '@/lib/quota';
@@ -89,6 +90,39 @@ async function memberFromAuth(userId: string): Promise<Member | null> {
   return row ? toMember(row) : null;
 }
 
+/**
+ * Hand the whole staff list to the quota engine.
+ *
+ * This is what makes "add a person" a database job instead of a code change:
+ * every screen reads the roster from `quota.ts`, and this replaces it with
+ * whatever `public.profiles` actually holds. Runs before the portal mounts, so
+ * the quota split, the member picker and the Users list are all correct on the
+ * first render.
+ *
+ * A failed read changes nothing — the four in `quota.ts` stay as the fallback.
+ */
+async function loadRoster(): Promise<void> {
+  if (!supabase) return;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('slug, full_name, role, department, active')
+    .eq('active', true);
+  if (error || !data) return;
+
+  const rows = (data as unknown) as PickedProfile[];
+  setRoster(
+    rows.map((r) => ({
+      id: r.slug,
+      name: r.full_name,
+      role: r.role,
+      department: r.department,
+      active: r.active,
+      rungUp: 0,
+      credited: 0,
+    })),
+  );
+}
+
 /** The dev stand-in: a member id remembered in localStorage. */
 function readMock(): Member | null {
   try {
@@ -129,6 +163,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.session) {
         const m = await memberFromAuth(data.session.user.id);
         if (alive) setMember(m);
+        // The roster has to be in place before the portal renders, otherwise
+        // the first paint shows the fallback four and then jumps.
+        await loadRoster();
       }
       if (alive) setLoading(false);
     });
@@ -202,6 +239,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await supabase.auth.signOut();
           return 'This login has no staff record linked to it yet. Run supabase/link-logins.sql once, then sign in again.';
         }
+        // Before the first screen, so the quota split already knows about them.
+        await loadRoster();
         setMember(m);
         return null;
       },

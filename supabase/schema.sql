@@ -329,33 +329,22 @@ create trigger on_auth_user_created
   for each row execute function public.link_profile();
 
 -- ════════════════════════════════════════════════════════════════════════════
--- The eighteen members
+-- The four people who actually work here
 -- ════════════════════════════════════════════════════════════════════════════
 -- `email` is the join key between a login and this row: it has to be exactly
--- the address the person signs in with, or the link never happens. The
--- @saksesories.ph addresses below are the intended ones; where someone already
--- has a working login on a different address, the profile moves onto that
--- address instead (see `link-logins.sql`). Gabriel and Maria are on Gmail
--- because those are the logins that actually exist.
+-- the address the person signs in with, or the link never happens. Gabriel and
+-- Maria are on Gmail because those are the logins that actually exist.
+--
+-- The eighteen names the project started with are gone — they were placeholders
+-- nobody could sign in as. To add somebody, add their row here (or with the
+-- INSERT in `add-person.sql`) and give them a login in
+-- Authentication → Users with the same address. The app reads this table, so
+-- there is no list in the code to keep in step.
 insert into public.profiles (slug, email, full_name, role, department) values
-  ('ana',     'ana.reyes@saksesories.ph',       'Ana Reyes',       'marketing',  'marketing'),
-  ('bea',     'bea.lim@saksesories.ph',         'Bea Lim',         'marketing',  'marketing'),
-  ('carla',   'carla.domingo@saksesories.ph',   'Carla Domingo',   'marketing',  'marketing'),
-  ('rica',    'rica.flores@saksesories.ph',     'Rica Flores',     'marketing',  'marketing'),
-  ('paolo',   'paolo.garcia@saksesories.ph',    'Paolo Garcia',    'marketing',  'marketing'),
-  ('noel',    'noel.ramos@saksesories.ph',      'Noel Ramos',      'marketing',  'marketing'),
-  ('jheff',   'jheff@gmail.com',                'Jheff',           'marketing',  'marketing'),
-  ('carlo',   'carlo.reyes@saksesories.ph',     'Carlo Reyes',     'production', 'production'),
-  ('dennis',  'dennis.yu@saksesories.ph',       'Dennis Yu',       'production', 'production'),
-  ('mark',    'mark.bautista@saksesories.ph',   'Mark Bautista',   'production', 'production'),
-  ('liza',    'liza.mercado@saksesories.ph',    'Liza Mercado',    'production', 'production'),
-  ('kim',     'kim.tan@saksesories.ph',         'Kim Tan',         'production', 'production'),
-  ('grace',   'grace.ong@saksesories.ph',       'Grace Ong',       'production', 'production'),
-  ('sofia',   'sofia.cruz@saksesories.ph',      'Sofia Cruz',      'production', 'production'),
-  ('miguel',  'miguel.torres@saksesories.ph',   'Miguel Torres',   'production', 'production'),
   ('gabriel', 'gm@gmail.com',                   'Gabriel Tan',     'gm',         'finance'),
   ('maria',   'finance@gmail.com',              'Maria Santos',    'finance',    'finance'),
-  ('anna',    'anna.sy@saksesories.ph',         'Anna Sy',         'finance',    'finance')
+  ('jheff',   'jheff@gmail.com',                'Jheff',           'marketing',  'marketing'),
+  ('carlo',   'carlo.reyes@saksesories.ph',     'Carlo Reyes',     'production', 'production')
 on conflict (slug) do nothing;
 
 -- ─── Link the logins that were already there ────────────────────────────────

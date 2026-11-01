@@ -67,37 +67,31 @@ export const PLAN: QuotaPlan = {
   ],
 };
 
-// Progress starts at zero. The shop records real sales in its own database now,
-// so there is no invented tally to show next to them. Only the "how many so
-// far" numbers are empty — the GM's targets in PLAN are untouched.
+// ── The roster ──────────────────────────────────────────────────────────────
+// These four are the people who work here, and they are also the fallback: on a
+// fresh clone with no database the app still has somebody to show. Once the
+// database answers, `setRoster` replaces this list wholesale with whatever is
+// really in `public.profiles` — so adding a person is a row in that table, not
+// an edit here and a redeploy.
+//
+// Keep this list identical to the seed in `supabase/schema.sql`. If the two
+// drift, the offline build shows one thing and the live shop another.
 export const MEMBERS: Member[] = [
-  { id: 'ana', name: 'Ana Reyes', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
-  { id: 'bea', name: 'Bea Lim', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
-  { id: 'carla', name: 'Carla Domingo', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
-  { id: 'rica', name: 'Rica Flores', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
-  { id: 'paolo', name: 'Paolo Garcia', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
-  { id: 'noel', name: 'Noel Ramos', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
-  // Added after the first build: a real login (`jheff@gmail.com`) that had no
-  // row here. Without it `quotaOf` returns 0, which reads as "already full" and
-  // the POS would quietly credit every sale he rings up to somebody else.
-  { id: 'jheff', name: 'Jheff', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
-  { id: 'carlo', name: 'Carlo Reyes', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
-  { id: 'dennis', name: 'Dennis Yu', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
-  { id: 'mark', name: 'Mark Bautista', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
-  { id: 'liza', name: 'Liza Mercado', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
-  { id: 'kim', name: 'Kim Tan', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
-  { id: 'grace', name: 'Grace Ong', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
-  { id: 'sofia', name: 'Sofia Cruz', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
-  { id: 'miguel', name: 'Miguel Torres', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
   { id: 'gabriel', name: 'Gabriel Tan', role: 'gm', department: 'finance', active: true, rungUp: 0, credited: 0 },
   { id: 'maria', name: 'Maria Santos', role: 'finance', department: 'finance', active: true, rungUp: 0, credited: 0 },
-  { id: 'anna', name: 'Anna Sy', role: 'finance', department: 'finance', active: true, rungUp: 0, credited: 0 },
+  { id: 'jheff', name: 'Jheff', role: 'marketing', department: 'marketing', active: true, rungUp: 0, credited: 0 },
+  { id: 'carlo', name: 'Carlo Reyes', role: 'production', department: 'production', active: true, rungUp: 0, credited: 0 },
 ];
 
 /** Whoever is signed in. Pinned to the header chip until auth exists. */
 export const ME = MEMBERS[0];
 
-export const activeMembers = MEMBERS.filter((m) => m.active);
+/**
+ * The active members the screens read. Mutated in place by `setRoster` rather
+ * than reassigned, so every `activeMembers.filter(...)` already in the app
+ * keeps pointing at the live list instead of a stale copy.
+ */
+export const activeMembers: Member[] = [];
 
 export const memberOf = (id: string): Member | undefined => MEMBERS.find((m) => m.id === id);
 
@@ -116,17 +110,43 @@ export function splitEven(total: number, n: number): number[] {
   return Array.from({ length: n }, (_, i) => base + (i < remainder ? 1 : 0));
 }
 
-/** Derived once: each active member's whole-piece share of their department. */
-const QUOTA_BY_MEMBER: Record<string, number> = (() => {
-  const map: Record<string, number> = {};
+/** Each active member's whole-piece share of their department. */
+let QUOTA_BY_MEMBER: Record<string, number> = {};
+
+/**
+ * Rebuild everything derived from the roster. Runs once at load and again
+ * whenever the database hands over a different list.
+ *
+ * `credited` is not part of this: it starts at zero and the screens read the
+ * real total off the sales ledger, so a member with no entry here is not
+ * treated as having sold nothing — they are simply not shown a quota ring.
+ */
+function rebuild(): void {
+  activeMembers.splice(0, activeMembers.length, ...MEMBERS.filter((m) => m.active));
+
+  QUOTA_BY_MEMBER = {};
   for (const dept of PLAN.departments) {
     const members = activeMembers.filter((m) => m.department === dept.id);
     splitEven(dept.quota, members.length).forEach((quota, i) => {
-      map[members[i].id] = quota;
+      QUOTA_BY_MEMBER[members[i].id] = quota;
     });
   }
-  return map;
-})();
+}
+
+rebuild();
+
+/**
+ * Adopt the roster the database just handed over.
+ *
+ * An empty list is ignored on purpose: a failed read or a half-finished
+ * migration would otherwise blank the shop, and "everybody disappeared" is a
+ * worse failure than "still showing yesterday's list".
+ */
+export function setRoster(list: Member[]): void {
+  if (!list.length) return;
+  MEMBERS.splice(0, MEMBERS.length, ...list);
+  rebuild();
+}
 
 /** This member's share. Derived from the department, never stored. */
 export function quotaOf(id: string): number {

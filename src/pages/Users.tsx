@@ -14,12 +14,6 @@ export default function Users() {
               records do not, so accounts are deactivated, never deleted.
             </p>
           </div>
-          <button
-            disabled
-            className="rounded-pill bg-ink-300 px-4 py-2 text-[11px] font-medium text-white opacity-70"
-          >
-            Add a member
-          </button>
         </div>
 
         <section className="mt-[20px] overflow-hidden rounded-[7px] border border-blush-300 bg-white">
@@ -75,9 +69,12 @@ export default function Users() {
           </div>
         </section>
 
-        <p className="mt-4 text-[9px] leading-[1.6] text-ink-300">
-          Draft — accounts are read-only for now. Adding, editing roles and deactivating come with
-          the database.
+        <p className="mt-4 max-w-[74ch] text-[9.5px] leading-[1.8] text-ink-300">
+          This list is the staff table in the database — there is no second list to keep
+          in step. <b className="font-medium text-ink-500">To add someone:</b> create their
+          login in Supabase under Authentication → Users (tick “Auto Confirm User”), then
+          add their row with <span className="text-ink-500">supabase/roster.sql</span>. They
+          show up here on the next refresh.
         </p>
     </main>
   );
