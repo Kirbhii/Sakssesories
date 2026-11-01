@@ -414,8 +414,25 @@ export default function Pos() {
     }
 
     setDone(true);
-    // Snapshot first: the panel below reads from `receipt`, not from `cart`,
-    // because the cart is cleared when the next order starts.
+
+    // Staff and customers part ways here. A member of staff is standing in
+    // front of the buyer with the piece in their hand — they do not need a
+    // screen telling them to save a number and track an order they just made.
+    // They get a tick and a cleared till, ready for the next person.
+    if (isStaff) {
+      window.setTimeout(() => {
+        setDone(false);
+        setCart([]);
+        setEngraving('');
+        setRef('');
+        setOrNo(nextOrNo());
+      }, 1400);
+      return;
+    }
+
+    // A customer ordered alone, possibly from another city, and will walk away
+    // from this screen. The number is the only thing they keep, so the till
+    // stops and waits for them to read it.
     const digits = phoneDigits(details.mobile);
     setReceipt({
       orNo,
@@ -763,21 +780,19 @@ export default function Pos() {
                       <path d="M2.6 7.3 5.6 10.3 11.4 3.9" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
-                  <h2 className="text-[17px]">{isStaff ? 'Sale recorded' : 'Order sent'}</h2>
+                  <h2 className="text-[17px]">Order sent</h2>
                 </div>
 
                 <div className="mt-4 rounded-[9px] border border-blush-300 bg-blush-50 px-4 py-4 text-center">
                   <p className="text-[8px] uppercase tracking-[0.18em] text-ink-300">
-                    {isStaff ? 'OR number' : 'Your order number'}
+                    Your order number
                   </p>
                   <p className="num mt-1.5 text-[30px] font-medium leading-none tracking-[0.03em] text-ink-900">
                     {receipt.orNo}
                   </p>
                   <p className="mx-auto mt-2.5 text-[9.5px] leading-[1.55] text-ink-500">
                     <span className="block text-[10px] font-medium text-ink-900">
-                      {isStaff
-                        ? 'The customer needs this number to track the order.'
-                        : 'You need this number to track your order.'}
+                      You need this number to track your order.
                     </span>
                     Save it or take a photo. It is also what the team asks for when you claim.
                   </p>
@@ -831,7 +846,7 @@ export default function Pos() {
                   onClick={startNew}
                   className="mt-4 w-full justify-center rounded-pill bg-crimson-600 px-[18px] py-3 text-[11.5px] font-medium text-white transition-colors hover:bg-wine-800"
                 >
-                  {isStaff ? 'Start a new order' : 'Done'}
+                  Done
                 </button>
               </div>
             ) : (
