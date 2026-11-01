@@ -273,7 +273,9 @@ create table if not exists public.variants (
   price   integer not null check (price >= 0)
 );
 
--- No grants: only the guard reads it, and it runs as its owner.
+-- No grants, and row level security on with no policy: the table is shut twice
+-- over. Only the guard reads it, and an owner is not subject to RLS.
+alter table public.variants enable row level security;
 revoke all on public.variants from anon, authenticated;
 
 insert into public.variants (label, shape, colour, price) values

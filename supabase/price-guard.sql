@@ -41,9 +41,11 @@ create table if not exists public.variants (
   price   integer not null check (price >= 0)
 );
 
--- No direct access. The trigger reads this table as its owner, so the app and
--- the public never need a grant on it — prices are shown on the shop page from
--- the app, not read out of here.
+-- No direct access. Row level security is on with no policy, so the table is
+-- shut even if a grant ever creeps back; the grants are removed as well, so the
+-- door is locked twice. The trigger reads this table as its owner, and an owner
+-- is not subject to RLS, so nothing breaks.
+alter table public.variants enable row level security;
 revoke all on public.variants from anon, authenticated;
 
 insert into public.variants (label, shape, colour, price) values
