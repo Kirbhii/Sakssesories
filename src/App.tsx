@@ -136,7 +136,10 @@ export default function App() {
           <Route
             path="quota"
             element={
-              <RequireRole allow={['gm']} need="Only the GM sets the monthly quota.">
+              <RequireRole
+                allow={['marketing', 'gm']}
+                need="The monthly quota belongs to Marketing and the GM."
+              >
                 <QuotaSettings />
               </RequireRole>
             }

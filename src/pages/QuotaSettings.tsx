@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { PLAN, activeMembers, splitEven } from '@/lib/quota';
 
 /**
- * The GM's one job that nobody else can do: set the numbers for the month.
+ * The month's numbers. Marketing owns this page — the target is the number they
+ * work to every day, so they are the ones who set it — and the GM keeps it
+ * alongside them, because the GM signs off on the month.
  *
  * The GM types a quota per department and the team total. Per-member shares are
  * never typed — 250 ÷ 8 is 31.25, and half a keychain cannot be sold — so they

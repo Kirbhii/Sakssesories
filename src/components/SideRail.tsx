@@ -49,7 +49,14 @@ const RAIL: RailItem[] = [
     to: '/portal/finance',
     roles: ['finance', 'gm'],
   },
-  { label: 'Quota', icon: 'M2.6 13V8.4M6.6 13V5.2M10.6 13V9.2M14 13V3', to: '/portal/quota', roles: ['gm'] },
+  {
+    label: 'Quota',
+    icon: 'M2.6 13V8.4M6.6 13V5.2M10.6 13V9.2M14 13V3',
+    to: '/portal/quota',
+    // Marketing owns the target — it is their number to set, and the GM keeps
+    // it too because the GM signs off on the month.
+    roles: ['marketing', 'gm'],
+  },
   {
     label: 'Users',
     // Two heads and a shoulder each. The old path had an arc with six numbers
