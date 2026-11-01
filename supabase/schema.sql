@@ -56,7 +56,11 @@ create table if not exists public.payment_accounts (
   approved_by    text references public.profiles (slug),
   approved_at    timestamptz,
   created_at     timestamptz not null default now(),
-  unique (member_slug, method)
+  unique (member_slug, method),
+  -- The picture itself, never a link. A link can be re-pointed at a different
+  -- picture after the code has been approved, and the approval would not know.
+  constraint payment_accounts_qr_is_image
+    check (qr is null or qr like 'data:image/%')
 );
 
 create index if not exists payment_accounts_method_idx
@@ -185,6 +189,39 @@ drop policy if exists accounts_gm_approve on public.payment_accounts;
 create policy accounts_gm_approve on public.payment_accounts
   for update to authenticated using (is_gm()) with check (is_gm());
 
+-- ── payment_accounts: who may approve ───────────────────────────────────────
+-- `accounts_own` checks *whose* row is being written, never what is being
+-- written — so on its own it would let a member approve their own code. And an
+-- approval that survives an edit is worse: approve a real code, swap the
+-- picture, keep the approval.
+--
+-- So: if the writer is not the GM, the row always lands unapproved, whatever
+-- they sent. Any edit goes back for review, because the thing that was approved
+-- is the picture that was there at the time.
+--
+-- Runs as the owner because `is_gm()` reads `profiles`, and a policy on
+-- `profiles` that reads `profiles` would recurse.
+create or replace function public.guard_payment_account()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_gm() then
+    new.approved    := false;
+    new.approved_by := null;
+    new.approved_at := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_payment_account on public.payment_accounts;
+create trigger guard_payment_account
+  before insert or update on public.payment_accounts
+  for each row execute function public.guard_payment_account();
+
 -- ── sales ───────────────────────────────────────────────────────────────────
 -- Own book for a member; the whole team for Finance and the GM. That is the
 -- same split the screens already make, so the database enforces it rather than
@@ -205,7 +242,12 @@ create policy sales_guest_insert on public.sales
 drop policy if exists sales_staff_insert on public.sales;
 create policy sales_staff_insert on public.sales
   for insert to authenticated
-  with check (staff_slug = my_slug() or is_money());
+  with check (
+    (staff_slug = my_slug() or is_money())
+    -- A sale cannot arrive already handed in. Otherwise the cash it represents
+    -- never shows up on the list of money still owed. Finance marks it later.
+    and remitted = false
+  );
 
 -- Only Finance and the GM may change a row after the fact — that is how a
 -- pending payment becomes paid, or a mistake becomes void.
@@ -213,7 +255,10 @@ drop policy if exists sales_money_update on public.sales;
 create policy sales_money_update on public.sales
   for update to authenticated using (is_money()) with check (is_money());
 
-grant select, insert on public.profiles to authenticated;
+-- Select only. Roster rows are made by the auto-roster trigger or by hand in
+-- the SQL Editor; a signed-in member has no business inserting one, and there
+-- is no INSERT policy to allow it anyway.
+grant select on public.profiles to authenticated;
 -- Column by column on purpose. A whole-row update would let any member set
 -- their own `role` to 'gm' and see the whole shop's money.
 grant update (full_name, phone, address, birthday, avatar)

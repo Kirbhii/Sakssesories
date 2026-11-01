@@ -195,7 +195,11 @@ export function isValidPhone(digits: string): boolean {
 //
 // Resolves `null` when it worked, or a sentence to show when it did not.
 
-export const MIN_PASSWORD = 6;
+// Eight, not six. These accounts guard the shop's money, they are created by
+// somebody else, and the domains are made up — so there is no "forgot password"
+// email to fall back on. A six-character password that a browser already flags
+// as breached (Chrome does exactly that) is the whole door.
+export const MIN_PASSWORD = 8;
 
 export async function changePassword(current: string, next: string): Promise<string | null> {
   if (!supabase) return 'Password changes need the database — this build has none.';
