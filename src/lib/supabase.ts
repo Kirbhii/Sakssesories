@@ -38,6 +38,13 @@ export interface ProfileRow {
   department: DepartmentId;
   active: boolean;
   auth_id: string | null;
+  /** The member's own details, filled in on the Profile screen. */
+  phone: string | null;
+  address: string | null;
+  /** 'YYYY-MM-DD'. */
+  birthday: string | null;
+  /** A downscaled JPEG data URL, not a link. */
+  avatar: string | null;
   created_at: string;
 }
 

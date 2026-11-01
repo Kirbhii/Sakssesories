@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { ROLE_LABEL, useAuth } from '@/lib/auth';
+import { initialsOf } from '@/lib/profile';
 import type { MemberRole } from '@/lib/quota';
 
 // ─── Vertical wine rail ─────────────────────────────────────────────────────
@@ -54,6 +55,13 @@ const RAIL: RailItem[] = [
     icon: 'M6 5.6a2.4 2.4 0 1 0 0 .1M1.8 13.4c0-2.3 1.9-3.8 4.2-3.8s4.2 1.5 4.2 3.8M11 4.2a2 0 1 1 0 4M11.6 9.8c1.7.3 2.8 1.5 2.8 3.2',
     to: '/portal/users',
     roles: ['gm'],
+  },
+  // Last on purpose: it is about the person, not the shop's numbers.
+  {
+    label: 'Profile',
+    icon: 'M8 2.8a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6ZM2.6 13.8c0-2.9 2.4-4.8 5.4-4.8s5.4 1.9 5.4 4.8',
+    to: '/portal/profile',
+    roles: STAFF,
   },
 ];
 
@@ -112,18 +120,37 @@ export default function SideRail() {
         ))}
       </nav>
 
-      <div className="mt-auto flex items-center gap-2.5 px-2 max-md:ml-auto max-md:mt-0 max-md:px-0">
-        <div className="min-w-0 max-md:hidden">
-          <strong className="block truncate text-[10.5px] font-medium text-white/90">
-            {member?.name ?? 'Signed out'}
-          </strong>
-          <small className="block truncate text-[8.5px] text-white/40">
-            {member ? ROLE_LABEL[member.role] : 'No session'}
-          </small>
-        </div>
+      {/* Stacked, not side by side: the name needs the full width of the rail,
+          and "Carlo M…" is not a name. */}
+      <div className="mt-auto grid gap-1.5 px-2 max-md:ml-auto max-md:mt-0 max-md:flex max-md:items-center max-md:px-0">
+        {/* The corner is the shortcut to your own page — and the one place the
+            photo you set actually shows up. */}
+        <Link
+          to="/portal/profile"
+          title="Your profile"
+          className="flex min-w-0 items-center gap-2.5 rounded-md px-1.5 py-1.5 transition-colors hover:bg-white/5 max-md:hidden"
+        >
+          <span className="grid h-7 w-7 flex-none place-items-center overflow-hidden rounded-full bg-white/12">
+            {member?.avatar ? (
+              <img src={member.avatar} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-[9px] leading-none text-white/70">
+                {initialsOf(member?.name ?? '')}
+              </span>
+            )}
+          </span>
+          <span className="min-w-0">
+            <strong className="block truncate text-[10.5px] font-medium text-white/90">
+              {member?.name ?? 'Signed out'}
+            </strong>
+            <small className="block truncate text-[8.5px] text-white/40">
+              {member ? ROLE_LABEL[member.role] : 'No session'}
+            </small>
+          </span>
+        </Link>
         <button
           onClick={leave}
-          className="flex flex-none items-center gap-1.5 rounded-md border border-white/15 px-3 py-[9px] text-[10.5px] text-white/70 transition-colors hover:bg-white/5 hover:text-white max-md:px-2"
+          className="flex items-center justify-center gap-1.5 rounded-md border border-white/15 px-3 py-[9px] text-[10.5px] text-white/70 transition-colors hover:bg-white/5 hover:text-white max-md:px-2"
         >
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" className="h-3 w-3 flex-none">
             <path d="M6 3H3v10h3M10.5 11 13 8l-2.5-3M13 8H6.5" strokeLinecap="round" strokeLinejoin="round" />

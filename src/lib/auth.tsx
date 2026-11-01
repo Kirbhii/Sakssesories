@@ -14,14 +14,14 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   MEMBERS,
-  type DepartmentId,
   type Member,
   type MemberRole,
 } from '@/lib/quota';
 import { loadAccounts } from '@/lib/payaccounts';
+import { localProfile } from '@/lib/profile';
 import { loadProduction } from '@/lib/production';
 import { loadSales } from '@/lib/sales';
-import { supabase } from '@/lib/supabase';
+import { supabase, type ProfileRow } from '@/lib/supabase';
 
 const STORAGE_KEY = 'skph.session';
 
@@ -33,20 +33,26 @@ interface AuthValue {
   /** Returns an error to show, or null when it worked. */
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
+  /** Re-read the signed-in profile — call it after the member edits it. */
+  refreshMember: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
 
-interface ProfileRow {
-  slug: string;
-  full_name: string;
-  role: MemberRole;
-  department: DepartmentId;
-  active: boolean;
-}
+/**
+ * The columns the screens read. `PROFILE` is the full set; `PROFILE_BASE` is
+ * what a database without `add-profile.sql` still has, so a member can sign in
+ * before the migration is run instead of being locked out.
+ */
+const PROFILE =
+  'slug, full_name, role, department, active, email, phone, address, birthday, avatar';
+const PROFILE_BASE = 'slug, full_name, role, department, active, email';
+
+type PickedProfile = Pick<ProfileRow, 'slug' | 'full_name' | 'role' | 'department' | 'active'> &
+  Partial<Pick<ProfileRow, 'email' | 'phone' | 'address' | 'birthday' | 'avatar'>>;
 
 /** The database row, shaped like the `Member` the screens already expect. */
-function toMember(row: ProfileRow): Member {
+function toMember(row: PickedProfile): Member {
   const local = MEMBERS.find((m) => m.id === row.slug);
   return {
     id: row.slug,
@@ -56,25 +62,52 @@ function toMember(row: ProfileRow): Member {
     active: row.active,
     rungUp: local?.rungUp ?? 0,
     credited: local?.credited ?? 0,
+    email: row.email ?? undefined,
+    phone: row.phone ?? undefined,
+    address: row.address ?? undefined,
+    birthday: row.birthday ?? undefined,
+    avatar: row.avatar ?? null,
   };
 }
 
 async function memberFromAuth(userId: string): Promise<Member | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('slug, full_name, role, department, active')
-    .eq('auth_id', userId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return toMember(data as ProfileRow);
+
+  const read = async (columns: string): Promise<PickedProfile | null> => {
+    const { data, error } = await supabase!
+      .from('profiles')
+      .select(columns)
+      .eq('auth_id', userId)
+      .maybeSingle();
+    if (error) return null;
+    return (data as unknown) as PickedProfile | null;
+  };
+
+  // Full set first; if `add-profile.sql` has not been run yet the extra columns
+  // do not exist, and the member still has to be able to sign in.
+  const row = (await read(PROFILE)) ?? (await read(PROFILE_BASE));
+  return row ? toMember(row) : null;
 }
 
 /** The dev stand-in: a member id remembered in localStorage. */
 function readMock(): Member | null {
   try {
     const id = window.localStorage.getItem(STORAGE_KEY);
-    return id ? (MEMBERS.find((m) => m.id === id) ?? null) : null;
+    if (!id) return null;
+    const base = MEMBERS.find((m) => m.id === id);
+    if (!base) return null;
+    // Offline there is no profile row, so the Profile screen's edits live in
+    // localStorage. Fold them in here and the rail shows the new name too.
+    const saved = localProfile(id);
+    if (!saved) return base;
+    return {
+      ...base,
+      name: saved.fullName?.trim() || base.name,
+      phone: saved.phone,
+      address: saved.address,
+      birthday: saved.birthday,
+      avatar: saved.avatar ?? null,
+    };
   } catch {
     return null;
   }
@@ -180,6 +213,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (supabase) await supabase.auth.signOut();
         setMember(null);
+      },
+      refreshMember: async () => {
+        // Offline the stand-in is the source of truth, so re-read it — that is
+        // what picks up a name edited on the Profile screen.
+        if (!supabase) {
+          setMember(readMock());
+          return;
+        }
+        const { data } = await supabase.auth.getUser();
+        if (!data.user) return;
+        const fresh = await memberFromAuth(data.user.id);
+        if (fresh) setMember(fresh);
       },
     }),
     [member, loading],

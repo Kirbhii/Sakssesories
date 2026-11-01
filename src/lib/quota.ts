@@ -37,6 +37,15 @@ export interface Member {
   rungUp: number;
   /** Pieces counted against their quota — differs from rungUp after transfers. */
   credited: number;
+  // ── Filled in from the Profile screen. Optional because the roster above is
+  // a static fallback: without a database there is nobody to hold these.
+  email?: string;
+  phone?: string;
+  address?: string;
+  /** 'YYYY-MM-DD'. */
+  birthday?: string;
+  /** A downscaled JPEG data URL, not a link. */
+  avatar?: string | null;
 }
 
 export interface QuotaPlan {

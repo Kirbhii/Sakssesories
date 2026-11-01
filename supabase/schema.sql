@@ -27,6 +27,14 @@ create table if not exists public.profiles (
   department  text not null check (department in ('marketing', 'production', 'finance')),
   active      boolean not null default true,
   auth_id     uuid unique references auth.users (id) on delete set null,
+  -- The member's own details, filled in on the Profile screen.
+  phone       text,
+  address     text,
+  birthday    date,
+  -- A downscaled JPEG data URL (~25 KB), the same way `payment_accounts.qr`
+  -- stores a code: small enough to travel with the row, so there is no bucket
+  -- to create and no orphaned files to clean up.
+  avatar      text,
   created_at  timestamptz not null default now()
 );
 
@@ -205,7 +213,11 @@ drop policy if exists sales_money_update on public.sales;
 create policy sales_money_update on public.sales
   for update to authenticated using (is_money()) with check (is_money());
 
-grant select, insert, update on public.profiles to authenticated;
+grant select, insert on public.profiles to authenticated;
+-- Column by column on purpose. A whole-row update would let any member set
+-- their own `role` to 'gm' and see the whole shop's money.
+grant update (full_name, phone, address, birthday, avatar)
+  on public.profiles to authenticated;
 grant select, insert, update on public.payment_accounts to authenticated;
 grant select, insert, update on public.sales to authenticated;
 grant insert on public.sales to anon;

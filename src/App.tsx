@@ -7,6 +7,7 @@ import Portal from '@/pages/Portal';
 import MySales from '@/pages/MySales';
 import Summary from '@/pages/Summary';
 import PaymentQr from '@/pages/PaymentQr';
+import Profile from '@/pages/Profile';
 import Production from '@/pages/Production';
 import Finance from '@/pages/Finance';
 import QuotaSettings from '@/pages/QuotaSettings';
@@ -108,6 +109,8 @@ export default function App() {
           <Route path="summary" element={<Summary />} />
           {/* Every member publishes their own payment codes, so no RequireRole. */}
           <Route path="payment" element={<PaymentQr />} />
+          {/* Everybody edits their own details — no role gate. */}
+          <Route path="profile" element={<Profile />} />
           <Route
             path="production"
             element={
