@@ -28,17 +28,21 @@ type PaymentMethod = string;
 type Fulfilment = 'pickup' | 'delivery';
 
 // Both are free to order here — the team confirms the arrangement after the
-// order is sent. A delivery is cash-on-delivery, so the courier collects the
-// shipping fee from the customer on top of the order total. That is why the
-// fee stays 0 in this column: it never passes through the app, so it must not
-// be added to the amount the customer is asked to send by e-money.
+// order is sent. A delivery carries a shipping fee that is COD: the courier
+// collects it from the customer, so it never passes through the app and stays 0
+// in this column. Adding it to the total would make the e-money QR ask for
+// money the shop is not meant to receive.
+//
+// Only the freight is COD. The order total is still paid up front, which is why
+// the note below says so — a bare "COD" badge reads as "pay everything on the
+// doorstep", and that is not what happens.
 const FULFILMENT: { id: Fulfilment; label: string; fee: number; note?: string }[] = [
   { id: 'pickup', label: 'Store pickup', fee: 0 },
   {
     id: 'delivery',
     label: 'Delivery',
     fee: 0,
-    note: 'Shipping fee is shouldered by the customer and paid to the courier on delivery. It is not part of the order total below.',
+    note: 'Shipping fee only. It is shouldered by the customer and paid to the courier on delivery. The order total below is paid before we ship.',
   },
 ];
 
@@ -675,7 +679,7 @@ export default function Pos() {
               {fulfilmentNote && (
                 <p className="mt-3 flex items-start gap-2 rounded-[5px] border border-blush-300 bg-blush-50 px-2.5 py-2 text-[9.5px] leading-[1.6] text-ink-500">
                   <span className="mt-[1px] flex-none rounded-[3px] bg-white px-1.5 py-[1px] text-[8px] font-medium uppercase tracking-[0.1em] text-ink-900">
-                    COD
+                    COD · shipping fee
                   </span>
                   <span>{fulfilmentNote}</span>
                 </p>
@@ -806,8 +810,8 @@ export default function Pos() {
               </div>
               {details.fulfilment === 'delivery' && (
                 <p className="pb-[3px] text-[9px] leading-[1.5] text-ink-300">
-                  Shipping fee is shouldered by the customer, paid to the courier on delivery — not
-                  included above.
+                  Shipping fee only — shouldered by the customer, paid to the courier on delivery.
+                  Not included above; the order total is paid before we ship.
                 </p>
               )}
               <div className="mt-[9px] flex items-baseline justify-between border-t border-blush-300 pt-[11px] font-medium text-ink-900">
