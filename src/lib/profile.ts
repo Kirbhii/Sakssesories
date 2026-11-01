@@ -152,6 +152,39 @@ export function initialsOf(name: string): string {
   return (first + last).toUpperCase();
 }
 
+// ── The mobile number ───────────────────────────────────────────────────────
+// A Philippine mobile is eleven digits and starts with 09. People type it every
+// which way — 09171234567, 0917 123 4567, 9171234567, +63 917 123 4567 — so it
+// is reduced to the eleven digits first and formatted only for display. What
+// gets saved is always the bare number.
+
+export const PHONE_LENGTH = 11;
+
+/** Anything the person typed → the eleven digits it should have been. */
+export function phoneDigits(raw: string): string {
+  let d = raw.replace(/\D/g, '');
+
+  // +63 917… / 63 917… → 0917…
+  if (d.startsWith('63') && d.length > PHONE_LENGTH) d = `0${d.slice(2)}`;
+  // 917… → 0917… (a number typed without the trunk zero)
+  else if (d.length === 10 && d.startsWith('9')) d = `0${d}`;
+
+  return d.slice(0, PHONE_LENGTH);
+}
+
+/** 09171234567 → "0917 123 4567". Grouped as people read it. */
+export function formatPhone(digits: string): string {
+  const d = digits.slice(0, PHONE_LENGTH);
+  if (d.length <= 4) return d;
+  if (d.length <= 7) return `${d.slice(0, 4)} ${d.slice(4)}`;
+  return `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+}
+
+/** Eleven digits, starting with 09. */
+export function isValidPhone(digits: string): boolean {
+  return /^09\d{9}$/.test(digits);
+}
+
 // ── Password ────────────────────────────────────────────────────────────────
 // Nobody should be stuck with a password somebody else chose for them. The shop
 // creates the account; the person owns it from then on.

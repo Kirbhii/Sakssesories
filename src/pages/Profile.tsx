@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { ROLE_LABEL, emailOf, useAuth } from '@/lib/auth';
-import { MIN_PASSWORD, changePassword, initialsOf, readAvatarImage, saveProfile } from '@/lib/profile';
-import type { DepartmentId } from '@/lib/quota';
+import {
+  MIN_PASSWORD,
+  PHONE_LENGTH,
+  changePassword,
+  formatPhone,
+  initialsOf,
+  isValidPhone,
+  phoneDigits,
+  readAvatarImage,
+  saveProfile,
+} from '@/lib/profile';
 
 // ─── Profile ────────────────────────────────────────────────────────────────
 // What a member fills in about themselves: the name the team sees, a photo, and
@@ -9,19 +18,18 @@ import type { DepartmentId } from '@/lib/quota';
 //
 // Two of the things on this page are deliberately not editable here. The email
 // is the login — changing it has to go through a confirmation email, so it is
-// shown read-only and the GM handles it. The role and department are the shop's
-// decision, not the member's, and the database refuses to let a member write
-// them at all (see `add-profile.sql`). Showing them greyed out is honest: it
-// says "this is not yours to change" instead of hiding the fact that it exists.
+// shown read-only and the GM handles it. The role is the shop's decision, not
+// the member's, and the database refuses to let a member write it at all (see
+// `add-profile.sql`). Showing it greyed out is honest: it says "this is not
+// yours to change" instead of hiding the fact that it exists.
 
-const DEPT_LABEL: Record<DepartmentId, string> = {
-  marketing: 'Marketing',
-  production: 'Production',
-  finance: 'Finance',
-};
-
-const FIELD =
-  'w-full rounded-[5px] border border-blush-300 bg-white px-2.5 py-[7px] text-[11.5px] text-ink-900 outline-none transition-colors focus:border-crimson-600';
+// The border colour is kept out of the base on purpose: two border-colour
+// utilities on one element are decided by stylesheet order, not by the order
+// they appear in the class list, so an "invalid" border would lose to the
+// normal one. Each caller adds exactly one.
+const FIELD_BASE =
+  'w-full rounded-[5px] border bg-white px-2.5 py-[7px] text-[11.5px] text-ink-900 outline-none transition-colors focus:border-crimson-600';
+const FIELD = `${FIELD_BASE} border-blush-300`;
 const LABEL = 'mb-1 block text-[8px] uppercase tracking-[0.16em] text-ink-300';
 
 export default function Profile() {
@@ -52,7 +60,7 @@ export default function Profile() {
   useEffect(() => {
     if (!member) return;
     setFullName(member.name);
-    setPhone(member.phone ?? '');
+    setPhone(phoneDigits(member.phone ?? ''));
     setAddress(member.address ?? '');
     setBirthday(member.birthday ?? '');
     setAvatar(member.avatar ?? null);
@@ -78,6 +86,13 @@ export default function Profile() {
 
     if (!fullName.trim()) {
       setMsg({ ok: false, text: 'Your name cannot be empty.' });
+      return;
+    }
+    if (phone && !isValidPhone(phone)) {
+      setMsg({
+        ok: false,
+        text: `Enter an ${PHONE_LENGTH}-digit mobile number, like 0917 123 4567.`,
+      });
       return;
     }
 
@@ -170,9 +185,7 @@ export default function Profile() {
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] text-ink-900">{shown}</p>
-                <p className="mt-0.5 text-[10px] text-ink-300">
-                  {ROLE_LABEL[member.role]} · {DEPT_LABEL[member.department]}
-                </p>
+                <p className="mt-0.5 text-[10px] text-ink-300">{ROLE_LABEL[member.role]}</p>
 
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <button
@@ -229,12 +242,26 @@ export default function Profile() {
                 <span className={LABEL}>Mobile number</span>
                 <input
                   type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  maxLength={24}
-                  placeholder="0917 000 0000"
-                  className={FIELD}
+                  inputMode="numeric"
+                  value={formatPhone(phone)}
+                  onChange={(e) => setPhone(phoneDigits(e.target.value))}
+                  placeholder="0917 123 4567"
+                  aria-invalid={!!phone && !isValidPhone(phone)}
+                  className={[
+                    FIELD_BASE,
+                    phone && !isValidPhone(phone) ? 'border-bad-600' : 'border-blush-300',
+                  ].join(' ')}
                 />
+                <span
+                  className={[
+                    'mt-1 block text-[9px] leading-[1.5]',
+                    phone && !isValidPhone(phone) ? 'text-bad-600' : 'text-ink-300',
+                  ].join(' ')}
+                >
+                  {phone && !isValidPhone(phone)
+                    ? `${phone.length} of ${PHONE_LENGTH} digits — it needs all ${PHONE_LENGTH}, starting with 09.`
+                    : `Exactly ${PHONE_LENGTH} digits, starting with 09.`}
+                </span>
               </label>
 
               <label>
@@ -285,7 +312,7 @@ export default function Profile() {
               </p>
             </div>
 
-            <dl className="grid grid-cols-3 gap-4 px-4 py-4 max-md:grid-cols-1">
+            <dl className="grid grid-cols-2 gap-4 px-4 py-4 max-md:grid-cols-1">
               <div className="min-w-0">
                 <dt className={LABEL}>Email</dt>
                 <dd className="truncate text-[11px] text-ink-900">
@@ -297,10 +324,6 @@ export default function Profile() {
               <div className="min-w-0">
                 <dt className={LABEL}>Role</dt>
                 <dd className="text-[11px] text-ink-900">{ROLE_LABEL[member.role]}</dd>
-              </div>
-              <div className="min-w-0">
-                <dt className={LABEL}>Department</dt>
-                <dd className="text-[11px] text-ink-900">{DEPT_LABEL[member.department]}</dd>
               </div>
             </dl>
           </section>
