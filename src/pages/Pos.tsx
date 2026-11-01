@@ -415,24 +415,13 @@ export default function Pos() {
 
     setDone(true);
 
-    // Staff and customers part ways here. A member of staff is standing in
-    // front of the buyer with the piece in their hand — they do not need a
-    // screen telling them to save a number and track an order they just made.
-    // They get a tick and a cleared till, ready for the next person.
-    if (isStaff) {
-      window.setTimeout(() => {
-        setDone(false);
-        setCart([]);
-        setEngraving('');
-        setRef('');
-        setOrNo(nextOrNo());
-      }, 1400);
-      return;
-    }
-
-    // A customer ordered alone, possibly from another city, and will walk away
-    // from this screen. The number is the only thing they keep, so the till
-    // stops and waits for them to read it.
+    // Both get a receipt, for different reasons. A customer keeps the number
+    // because it is the only handle they have on the order. A member of staff
+    // keeps it because the shop writes the same number on a paper receipt by
+    // hand — and 1.4 seconds was not long enough to copy seven digits.
+    //
+    // What they must NOT share is the wording: telling someone at the counter
+    // to "save this and track your order" is talking to the wrong person.
     const digits = phoneDigits(details.mobile);
     setReceipt({
       orNo,
@@ -780,21 +769,25 @@ export default function Pos() {
                       <path d="M2.6 7.3 5.6 10.3 11.4 3.9" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
-                  <h2 className="text-[17px]">Order sent</h2>
+                  <h2 className="text-[17px]">{isStaff ? 'Sale recorded' : 'Order sent'}</h2>
                 </div>
 
                 <div className="mt-4 rounded-[9px] border border-blush-300 bg-blush-50 px-4 py-4 text-center">
                   <p className="text-[8px] uppercase tracking-[0.18em] text-ink-300">
-                    Your order number
+                    {isStaff ? 'OR number' : 'Your order number'}
                   </p>
                   <p className="num mt-1.5 text-[30px] font-medium leading-none tracking-[0.03em] text-ink-900">
                     {receipt.orNo}
                   </p>
                   <p className="mx-auto mt-2.5 text-[9.5px] leading-[1.55] text-ink-500">
                     <span className="block text-[10px] font-medium text-ink-900">
-                      You need this number to track your order.
+                      {isStaff
+                        ? 'Copy this number onto the paper receipt.'
+                        : 'You need this number to track your order.'}
                     </span>
-                    Save it or take a photo. It is also what the team asks for when you claim.
+                    {isStaff
+                      ? 'It is how the order is looked up later, and what the customer quotes when they claim.'
+                      : 'Save it or take a photo. It is also what the team asks for when you claim.'}
                   </p>
                 </div>
 
@@ -846,7 +839,7 @@ export default function Pos() {
                   onClick={startNew}
                   className="mt-4 w-full justify-center rounded-pill bg-crimson-600 px-[18px] py-3 text-[11.5px] font-medium text-white transition-colors hover:bg-wine-800"
                 >
-                  Done
+                  {isStaff ? 'Next customer' : 'Done'}
                 </button>
               </div>
             ) : (
