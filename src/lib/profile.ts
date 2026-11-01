@@ -151,3 +151,51 @@ export function initialsOf(name: string): string {
   const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '';
   return (first + last).toUpperCase();
 }
+
+// ── Password ────────────────────────────────────────────────────────────────
+// Nobody should be stuck with a password somebody else chose for them. The shop
+// creates the account; the person owns it from then on.
+//
+// The current password is asked for even though Supabase would accept the new
+// one on the strength of the session alone. A session is a laptop left open;
+// knowing the old password is proof it is really the person sitting there.
+//
+// Resolves `null` when it worked, or a sentence to show when it did not.
+
+export const MIN_PASSWORD = 6;
+
+export async function changePassword(current: string, next: string): Promise<string | null> {
+  if (!supabase) return 'Password changes need the database — this build has none.';
+
+  const { data } = await supabase.auth.getUser();
+  const email = data.user?.email;
+  if (!email) return 'Your session has expired. Sign in again and retry.';
+
+  // 1. Prove they know the current one.
+  const check = await supabase.auth.signInWithPassword({ email, password: current });
+  if (check.error) {
+    return /invalid login credentials/i.test(check.error.message)
+      ? 'That is not your current password.'
+      : check.error.message;
+  }
+
+  // 2. Set the new one. The session is refreshed by the sign-in above, so this
+  //    applies to the person who is actually here.
+  const { error } = await supabase.auth.updateUser({ password: next });
+  if (!error) return null;
+
+  if (/should be different/i.test(error.message)) {
+    return 'That is already your password — pick a different one.';
+  }
+  if (/at least|too short|password length/i.test(error.message)) {
+    return `Use at least ${MIN_PASSWORD} characters.`;
+  }
+  if (/weak|pwned|guess/i.test(error.message)) {
+    return 'That password is too easy to guess. Try another.';
+  }
+  if (/rate limit|too many/i.test(error.message)) {
+    return 'Too many tries — wait a minute, then try again.';
+  }
+  console.error('[profile] could not change the password:', error.message);
+  return 'Could not change the password — check your connection and try again.';
+}

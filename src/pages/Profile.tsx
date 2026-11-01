@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ROLE_LABEL, emailOf, useAuth } from '@/lib/auth';
-import { initialsOf, readAvatarImage, saveProfile } from '@/lib/profile';
+import { MIN_PASSWORD, changePassword, initialsOf, readAvatarImage, saveProfile } from '@/lib/profile';
 import type { DepartmentId } from '@/lib/quota';
 
 // ─── Profile ────────────────────────────────────────────────────────────────
@@ -37,6 +37,15 @@ export default function Profile() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Password — its own little form, because it is a different thing entirely:
+  // the row above is data, this is the key to the account.
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [reveal, setReveal] = useState(false);
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Fill the form once the session resolves. Keyed on the member id, not the
   // whole object, so a refresh after saving cannot wipe what is being typed.
@@ -82,6 +91,41 @@ export default function Profile() {
     }
     await refreshMember();
     setMsg({ ok: true, text: 'Saved.' });
+  }
+
+  async function updatePassword(): Promise<void> {
+    setPwMsg(null);
+
+    if (!current) {
+      setPwMsg({ ok: false, text: 'Enter your current password.' });
+      return;
+    }
+    if (next.length < MIN_PASSWORD) {
+      setPwMsg({ ok: false, text: `Use at least ${MIN_PASSWORD} characters.` });
+      return;
+    }
+    if (next !== confirm) {
+      setPwMsg({ ok: false, text: 'The two new passwords do not match.' });
+      return;
+    }
+    if (next === current) {
+      setPwMsg({ ok: false, text: 'That is already your password — pick a different one.' });
+      return;
+    }
+
+    setPwSaving(true);
+    const error = await changePassword(current, next);
+    setPwSaving(false);
+
+    if (error) {
+      setPwMsg({ ok: false, text: error });
+      return;
+    }
+    setCurrent('');
+    setNext('');
+    setConfirm('');
+    setReveal(false);
+    setPwMsg({ ok: true, text: 'Password changed. Use the new one next time you sign in.' });
   }
 
   if (!member) return null;
@@ -259,6 +303,80 @@ export default function Profile() {
                 <dd className="text-[11px] text-ink-900">{DEPT_LABEL[member.department]}</dd>
               </div>
             </dl>
+          </section>
+
+          {/* ── Password ──────────────────────────────────────────────── */}
+          <section className="overflow-hidden rounded-[7px] border border-blush-300 bg-white">
+            <div className="border-b border-blush-300/60 px-4 py-3.5">
+              <h2 className="text-[15px]">Password</h2>
+              <p className="mt-0.5 text-[9.5px] text-ink-300">
+                Change it whenever you like. Nobody else can see it — not even the GM.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 px-4 py-4 max-md:grid-cols-1">
+              <label>
+                <span className={LABEL}>Current password</span>
+                <input
+                  type={reveal ? 'text' : 'password'}
+                  value={current}
+                  onChange={(e) => setCurrent(e.target.value)}
+                  autoComplete="current-password"
+                  placeholder="••••••"
+                  className={FIELD}
+                />
+              </label>
+
+              <label>
+                <span className={LABEL}>New password</span>
+                <input
+                  type={reveal ? 'text' : 'password'}
+                  value={next}
+                  onChange={(e) => setNext(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder={`At least ${MIN_PASSWORD} characters`}
+                  className={FIELD}
+                />
+              </label>
+
+              <label>
+                <span className={LABEL}>Type it again</span>
+                <input
+                  type={reveal ? 'text' : 'password'}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="Same as above"
+                  className={FIELD}
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 border-t border-blush-300/60 bg-blush-50 px-4 py-3">
+              <button
+                onClick={updatePassword}
+                disabled={pwSaving}
+                className="rounded-pill bg-crimson-600 px-[18px] py-2 text-[11px] font-medium text-white transition-colors hover:bg-wine-800 disabled:opacity-60"
+              >
+                {pwSaving ? 'Changing…' : 'Change password'}
+              </button>
+              <button
+                onClick={() => setReveal((v) => !v)}
+                className="text-[9.5px] text-ink-300 underline-offset-2 transition-colors hover:text-ink-900 hover:underline"
+              >
+                {reveal ? 'Hide' : 'Show'} the letters
+              </button>
+              {pwMsg && (
+                <span
+                  className={[
+                    'text-[10px]',
+                    pwMsg.ok ? 'text-ok-600' : 'text-bad-600',
+                  ].join(' ')}
+                >
+                  {pwMsg.text}
+                </span>
+              )}
+            </div>
           </section>
         </div>
       </div>
