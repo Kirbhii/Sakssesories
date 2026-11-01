@@ -27,11 +27,19 @@ import { allSales, recordSales, type Sale } from '@/lib/sales';
 type PaymentMethod = string;
 type Fulfilment = 'pickup' | 'delivery';
 
-// Both are free for now — the team confirms the arrangement after the order is
-// sent. Change the fee here when a delivery charge is decided.
-const FULFILMENT: { id: Fulfilment; label: string; fee: number }[] = [
+// Both are free to order here — the team confirms the arrangement after the
+// order is sent. A delivery is cash-on-delivery, so the courier collects the
+// shipping fee from the customer on top of the order total. That is why the
+// fee stays 0 in this column: it never passes through the app, so it must not
+// be added to the amount the customer is asked to send by e-money.
+const FULFILMENT: { id: Fulfilment; label: string; fee: number; note?: string }[] = [
   { id: 'pickup', label: 'Store pickup', fee: 0 },
-  { id: 'delivery', label: 'Delivery', fee: 0 },
+  {
+    id: 'delivery',
+    label: 'Delivery',
+    fee: 0,
+    note: 'Shipping fee is shouldered by the customer and paid to the courier on delivery. It is not part of the order total below.',
+  },
 ];
 
 // Mock OR numbers. A real build would issue these from the receipt printer's
@@ -143,6 +151,9 @@ export default function Pos() {
   });
   const [payment, setPayment] = useState<PaymentMethod>(member ? 'cash' : 'gcash');
   const [cash, setCash] = useState('');
+  // The number the payer's app showed after the transfer. E-money only: with
+  // cash there is nothing to look up, because the notes are in the drawer.
+  const [ref, setRef] = useState('');
   const [done, setDone] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -167,6 +178,9 @@ export default function Pos() {
   const pieces = cart.reduce((sum, l) => sum + l.qty, 0);
   const subtotal = cart.reduce((sum, l) => sum + l.unit * l.qty, 0);
   const fulfilmentFee = FULFILMENT.find((f) => f.id === details.fulfilment)?.fee ?? 0;
+  // The delivery charge is never in `total` — the courier collects it from the
+  // customer — so the note has to say so out loud, or the ₱0 line reads as free.
+  const fulfilmentNote = FULFILMENT.find((f) => f.id === details.fulfilment)?.note;
   const total = subtotal + fulfilmentFee;
 
   // `cash` is typed in pesos; totals are centavos — convert before comparing.
@@ -251,6 +265,13 @@ export default function Pos() {
   // While the account is being looked up, "unavailable" would be a lie.
   const payWaiting = !isStaff && payment !== 'cash' && total > 0 && payeeBusy;
 
+  // E-money is only provable by its reference number. The money lands in
+  // somebody's GCash, and the only thing that ties that transfer to this order
+  // is the number their app showed. Without it the order would sit pending with
+  // nothing for the owner of the account to match against — so the sale does
+  // not go through until it is typed in.
+  const refMissing = payment !== 'cash' && total > 0 && !!payCode && !payWaiting && !ref.trim();
+
   const missing: string[] = [];
   if (!details.name.trim()) missing.push('name');
   if (!details.mobile.trim()) missing.push('mobile');
@@ -322,7 +343,7 @@ export default function Pos() {
 
   async function complete() {
     if (!cart.length || missing.length || saving) return;
-    if (blocked || payBlocked || payWaiting || cashShort || !creditId) return;
+    if (blocked || payBlocked || payWaiting || cashShort || refMissing || !creditId) return;
 
     // The order becomes rows in the ledger — one row per cart line, all sharing
     // this OR number, exactly the way the shop's summary sheet lists a
@@ -350,7 +371,9 @@ export default function Pos() {
       // drawer. E-money is not: nobody has matched the amount against the
       // account yet, so it stays pending until someone does.
       status: payment === 'cash' ? 'paid' : 'pending',
-      payRef: null,
+      // The proof that the transfer happened. Kept on every line of the order,
+      // the same way the OR number is, so checking one line checks the order.
+      payRef: payment === 'cash' ? null : ref.trim(),
       // A sale is never remitted the moment it is rung up — Finance turns that
       // on once the money is actually counted in.
       remitted: false,
@@ -373,6 +396,7 @@ export default function Pos() {
       setDone(false);
       setCart([]);
       setEngraving('');
+      setRef('');
       setOrNo(nextOrNo());
     }, 1400);
   }
@@ -648,6 +672,15 @@ export default function Pos() {
                 </Field>
               </div>
 
+              {fulfilmentNote && (
+                <p className="mt-3 flex items-start gap-2 rounded-[5px] border border-blush-300 bg-blush-50 px-2.5 py-2 text-[9.5px] leading-[1.6] text-ink-500">
+                  <span className="mt-[1px] flex-none rounded-[3px] bg-white px-1.5 py-[1px] text-[8px] font-medium uppercase tracking-[0.1em] text-ink-900">
+                    COD
+                  </span>
+                  <span>{fulfilmentNote}</span>
+                </p>
+              )}
+
               <div className="mt-3.5">
                 <Field label="Order note (optional)">
                   <input
@@ -660,8 +693,8 @@ export default function Pos() {
               </div>
 
               <p className="mt-3.5 text-[9.5px] leading-[1.6] text-ink-300">
-                Pickup, delivery, and payment arrangements will be confirmed by the team after you
-                send your order.
+                Pickup happens inside the campus only, at Quezon City University - Main. Delivery
+                and the rest of the arrangement are confirmed by the team after you send your order.
               </p>
             </div>
           </section>
@@ -771,6 +804,12 @@ export default function Pos() {
                 </span>
                 <span className="num text-ink-900">{peso(fulfilmentFee)}</span>
               </div>
+              {details.fulfilment === 'delivery' && (
+                <p className="pb-[3px] text-[9px] leading-[1.5] text-ink-300">
+                  Shipping fee is shouldered by the customer, paid to the courier on delivery — not
+                  included above.
+                </p>
+              )}
               <div className="mt-[9px] flex items-baseline justify-between border-t border-blush-300 pt-[11px] font-medium text-ink-900">
                 <span className="text-[12px]">Order total</span>
                 <span className="num text-[18px]">{peso(total)}</span>
@@ -884,6 +923,30 @@ export default function Pos() {
                     </div>
                   )}
                 </>
+              )}
+
+              {/* E-money leaves a number behind; cash does not. That number is
+                  the only thing tying the transfer to this order, so it is
+                  required — an order nobody can match is an order nobody can
+                  ever confirm, and it would sit pending for good. */}
+              {payment !== 'cash' && total > 0 && payCode && !payWaiting && (
+                <label className="mt-2.5 block">
+                  <span className="mb-1 block text-[8px] uppercase tracking-[0.15em] text-ink-300">
+                    Reference number
+                  </span>
+                  <input
+                    type="text"
+                    value={ref}
+                    onChange={(e) => setRef(e.target.value)}
+                    placeholder="1234567890123"
+                    aria-label="Reference number"
+                    className={inputClass}
+                  />
+                  <span className="mt-1 block text-[8.5px] leading-[1.5] text-ink-300">
+                    The number the app shows right after the transfer. It is how the money gets
+                    matched to this order.
+                  </span>
+                </label>
               )}
             </div>
 
