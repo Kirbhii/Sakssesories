@@ -38,7 +38,13 @@ export const CLOSED_WEEKDAYS: readonly number[] = [0, 3, 5]; // Sun, Wed, Fri
  * Wednesday and Sunday is closed. Add a date here only if the shop needs the
  * site on a normally-closed day (e.g. a one-off make-up selling day).
  */
-export const OPEN_EXCEPTIONS: readonly string[] = [];
+export const OPEN_EXCEPTIONS: readonly string[] = [
+  // Sunday, opened on request so the till could be tried today. It only opens
+  // the ordering side (`RequireOpen` wraps the POS alone — the shop stays
+  // browsable on closed days either way), and it expires on its own: tomorrow
+  // is a different date. Delete the line once it has served its purpose.
+  '2026-11-01',
+];
 
 /** The day a reporting week starts on (Saturday), so each week ends on Friday. */
 export const WEEK_START_WEEKDAY = 6; // Saturday
