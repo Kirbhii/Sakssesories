@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
@@ -29,6 +29,24 @@ export default function Login() {
   return (
     <div className="grid min-h-screen place-items-center bg-blush-50 px-5 py-10">
       <div className="w-full max-w-[430px]">
+        {/* A customer who tapped "sign in" by mistake should not have to use
+            the browser's back button to get out. */}
+        <Link
+          to="/"
+          className="mb-4 inline-flex items-center gap-1.5 text-[10.5px] text-ink-500 transition-colors hover:text-crimson-600"
+        >
+          <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none">
+            <path
+              d="M7.4 2.6 4 6l3.4 3.4"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Back to the shop
+        </Link>
+
         <div className="text-center">
           <img
             src="/img/logo-mark.png"

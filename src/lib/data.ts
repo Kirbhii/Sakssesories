@@ -26,7 +26,6 @@ export interface Variant {
   hex: string;
   sku: string;
   price: number; // centavos
-  stock: number;
 }
 
 // ─── Prices ─────────────────────────────────────────────────────────────────
@@ -59,14 +58,13 @@ export const COLOURS: Colour[] = [
   { id: 'black', name: 'Black', hex: '#1a1a1a', sku: 'BK' },
 ];
 
-/** Mock stock until Supabase is wired — index matches COLOURS order. */
-const STOCK: Record<ShapeId, number[]> = {
-  heart: [6, 4, 0, 9, 3, 12],
-  teardrop: [2, 7, 5, 1, 8, 0],
-};
-
+// No stock number lives here on purpose. How many pieces can actually be sold
+// is a question only the production log can answer — what was made, minus what
+// was already sold — and a constant in the browser would be a guess that goes
+// stale the moment the first piece leaves the shelf. Until the POS reads the
+// production log, it takes the cashier at their word.
 export const VARIANTS: Variant[] = SHAPES.flatMap((shape) =>
-  COLOURS.map((colour, i) => ({
+  COLOURS.map((colour) => ({
     key: `${shape.id}-${colour.id}`,
     shape: shape.id,
     shapeName: shape.name,
@@ -74,7 +72,6 @@ export const VARIANTS: Variant[] = SHAPES.flatMap((shape) =>
     hex: colour.hex,
     sku: `CC-${shape.sku}-${colour.sku}`,
     price: shape.price,
-    stock: STOCK[shape.id][i],
   })),
 );
 

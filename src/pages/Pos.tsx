@@ -191,7 +191,6 @@ export default function Pos() {
   const isStaff = !!member;
 
   const variant = VARIANTS.find((v) => v.key === `${shape}-${colour}`);
-  const stock = variant?.stock ?? 0;
   const base = variant?.price ?? SHAPES[0].price;
   const engraved = cleanEngraving(engraving);
   const letters = engraved.length;
@@ -340,16 +339,14 @@ export default function Pos() {
   }
 
   function addToCart() {
-    if (!variant || stock === 0) return;
+    if (!variant) return;
     const name = cleanEngraving(engraving);
     const key = `${shape}-${colour}-${name}`;
 
     setCart((prev) => {
       const found = prev.find((l) => l.key === key);
       if (found) {
-        return prev.map((l) =>
-          l.key === key ? { ...l, qty: Math.min(stock, l.qty + qty) } : l,
-        );
+        return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + qty } : l));
       }
       return [
         ...prev,
@@ -363,7 +360,7 @@ export default function Pos() {
           sku: variant.sku,
           base,
           unit: base + engravingFee(name.length),
-          qty: Math.min(stock, qty),
+          qty,
           engraving: name,
         },
       ];
@@ -381,11 +378,7 @@ export default function Pos() {
   function bump(key: string, delta: number) {
     setCart((prev) =>
       prev
-        .map((l) => {
-          if (l.key !== key) return l;
-          const limit = VARIANTS.find((v) => v.key === `${l.shape}-${l.colourId}`)?.stock ?? l.qty;
-          return { ...l, qty: Math.min(limit, Math.max(0, l.qty + delta)) };
-        })
+        .map((l) => (l.key === key ? { ...l, qty: Math.max(0, l.qty + delta) } : l))
         .filter((l) => l.qty > 0),
     );
   }
@@ -580,28 +573,22 @@ export default function Pos() {
                   aside={<span className="text-ink-900">{variant?.colour}</span>}
                 />
                 <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
-                  {COLOURS.map((c) => {
-                    const out =
-                      VARIANTS.find((v) => v.key === `${shape}-${c.id}`)?.stock === 0;
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => setColour(c.id)}
-                        disabled={out}
-                        aria-label={c.name}
-                        aria-pressed={colour === c.id}
-                        title={out ? `${c.name} — out of stock` : c.name}
-                        className={[
-                          'h-[26px] w-[26px] rounded-full border transition-all',
-                          out ? 'cursor-not-allowed border-black/5 opacity-30' : '',
-                          colour === c.id
-                            ? 'border-ink-900 ring-2 ring-ink-900 ring-offset-2 ring-offset-white'
-                            : 'border-black/15 hover:scale-105',
-                        ].join(' ')}
-                        style={{ background: c.hex }}
-                      />
-                    );
-                  })}
+                  {COLOURS.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setColour(c.id)}
+                      aria-label={c.name}
+                      aria-pressed={colour === c.id}
+                      title={c.name}
+                      className={[
+                        'h-[26px] w-[26px] rounded-full border transition-all',
+                        colour === c.id
+                          ? 'border-ink-900 ring-2 ring-ink-900 ring-offset-2 ring-offset-white'
+                          : 'border-black/15 hover:scale-105',
+                      ].join(' ')}
+                      style={{ background: c.hex }}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -655,17 +642,7 @@ export default function Pos() {
 
               {/* 04 — quantity */}
               <div className="border-t border-blush-300/60 px-5 py-4">
-                <Step
-                  n="04"
-                  title="Quantity"
-                  aside={
-                    stock === 0 ? (
-                      <span className="text-bad-600">Out of stock</span>
-                    ) : (
-                      <span className="text-ink-900">Available to order: {stock}</span>
-                    )
-                  }
-                />
+                <Step n="04" title="Quantity" />
                 <div className="mt-2.5 inline-flex items-center overflow-hidden rounded-pill border border-blush-300">
                   <button
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
@@ -677,10 +654,9 @@ export default function Pos() {
                   </button>
                   <span className="num min-w-[28px] text-center text-[12px]">{qty}</span>
                   <button
-                    onClick={() => setQty((q) => Math.min(Math.max(stock, 1), q + 1))}
-                    disabled={qty >= stock}
+                    onClick={() => setQty((q) => q + 1)}
                     aria-label="Increase quantity"
-                    className="grid h-[30px] w-[32px] place-items-center text-[13px] text-ink-500 transition-colors hover:bg-blush-100 disabled:opacity-30"
+                    className="grid h-[30px] w-[32px] place-items-center text-[13px] text-ink-500 transition-colors hover:bg-blush-100"
                   >
                     +
                   </button>
@@ -691,17 +667,9 @@ export default function Pos() {
               <div className="border-t border-blush-300/60 px-5 py-4">
                 <button
                   onClick={addToCart}
-                  disabled={stock === 0}
-                  className={[
-                    'flex w-full items-center justify-center gap-2 rounded-pill px-[18px] py-3 text-[11.5px] font-medium text-white transition-colors',
-                    stock === 0
-                      ? 'cursor-not-allowed bg-ink-500'
-                      : 'bg-crimson-600 hover:bg-wine-800',
-                  ].join(' ')}
+                  className="flex w-full items-center justify-center gap-2 rounded-pill bg-crimson-600 px-[18px] py-3 text-[11.5px] font-medium text-white transition-colors hover:bg-wine-800"
                 >
-                  {stock === 0
-                    ? 'Out of stock'
-                    : `Add ${qty} to order · ${peso(addTotal)}`}
+                  Add {qty} to order · {peso(addTotal)}
                 </button>
 
                 {flash && (
