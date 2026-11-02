@@ -130,8 +130,12 @@ create table if not exists public.production (
   qty         integer not null default 0 check (qty >= 0),
   rejected    integer not null default 0 check (rejected >= 0),
   created_by  text references public.profiles (slug),
-  created_at  timestamptz not null default now(),
-  constraint production_not_empty check (qty > 0 or rejected > 0)
+  created_at  timestamptz not null default now()
+  -- No "qty > 0 or rejected > 0" here on purpose. A row of 0/0 is how
+  -- production says "I am confirming there are none of this colour", which is
+  -- the only way to shut a variant the shop has never made. Without it a
+  -- customer on the website could order a colour that does not exist. An empty
+  -- row is meaningless but harmless, and forbidding it also forbade this.
 );
 
 create index if not exists production_day_idx

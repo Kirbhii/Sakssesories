@@ -275,9 +275,15 @@ export function availableMap(): Map<string, number | null> {
 
 // ── Writing ─────────────────────────────────────────────────────────────────
 
-/** Append a batch of finished pieces. Resolves false if the write failed. */
-export async function addProduction(entries: ProductionEntry[]): Promise<boolean> {
-  if (!entries.length) return false;
+/**
+ * Append a batch of finished pieces.
+ *
+ * Returns `null` when it worked, or a sentence saying why it did not — so the
+ * screen can tell the truth instead of guessing at "check your connection".
+ * Same shape as `saveMonth` in `quotas.ts`.
+ */
+export async function addProduction(entries: ProductionEntry[]): Promise<string | null> {
+  if (!entries.length) return 'There was nothing to save.';
 
   if (!supabase) {
     live = [...entries, ...live];
@@ -287,7 +293,7 @@ export async function addProduction(entries: ProductionEntry[]): Promise<boolean
       /* private mode — keep it in memory */
     }
     publish();
-    return true;
+    return null;
   }
 
   // Show it straight away, then roll back if the server rejects it.
@@ -309,9 +315,15 @@ export async function addProduction(entries: ProductionEntry[]): Promise<boolean
     live = live.filter((e) => !failed.has(e.id));
     publish();
     console.error('[production] could not save:', error.message);
-    return false;
+
+    // The one failure worth naming: the table still forbids a row of zeros, so
+    // "there are none of this colour" cannot be recorded yet.
+    if (/production_not_empty/i.test(error.message)) {
+      return 'The database still refuses a zero. Run supabase/production-zero.sql in the SQL Editor once, then save again.';
+    }
+    return `Could not save: ${error.message}`;
   }
-  return true;
+  return null;
 }
 
 export function subscribeProduction(fn: () => void): () => void {

@@ -78,9 +78,24 @@ export default function Production() {
     setMsg(null);
     const rows: ProductionEntry[] = [];
     for (const v of VARIANTS) {
-      const made = Math.floor(Number(qty[v.key] || 0));
-      const bad = Math.floor(Number(rej[v.key] || 0));
-      if (made <= 0 && bad <= 0) continue;
+      const madeRaw = qty[v.key];
+      const badRaw = rej[v.key];
+
+      // A typed zero is not an empty box, and the difference matters.
+      //
+      // Empty means "nothing to report for this one today" — the number stays
+      // unknown, and the POS keeps selling it freely, because a shop that
+      // refuses to sell on its first day because nobody has logged anything
+      // yet is worse than one that oversells.
+      //
+      // A typed 0 means "I am confirming there are none of this one." That is
+      // the only way to shut a variant the shop has never made, and without it
+      // a customer on the website could order a colour that does not exist.
+      const touched = madeRaw !== undefined || badRaw !== undefined;
+      if (!touched) continue;
+
+      const made = Math.floor(Number(madeRaw || 0));
+      const bad = Math.floor(Number(badRaw || 0));
       rows.push({
         id: uid(),
         producedOn: date,
@@ -92,21 +107,24 @@ export default function Production() {
       });
     }
     if (!rows.length) {
-      setMsg({ ok: false, text: 'Enter at least one quantity before saving.' });
+      setMsg({ ok: false, text: 'Enter at least one number before saving.' });
       return;
     }
 
     setSaving(true);
-    const ok = await addProduction(rows);
+    const problem = await addProduction(rows);
     setSaving(false);
 
-    if (ok) {
+    if (!problem) {
       setQty({});
       setRej({});
       const made = rows.reduce((n, r) => n + r.qty, 0);
       const bad = rows.reduce((n, r) => n + r.rejected, 0);
-      const bits = [`${made} produced`];
+      const none = rows.filter((r) => r.qty === 0 && r.rejected === 0).length;
+      const bits: string[] = [];
+      if (made) bits.push(`${made} produced`);
       if (bad) bits.push(`${bad} rejected`);
+      if (none) bits.push(`${none} marked as none`);
       setMsg({
         ok: true,
         text: `Logged ${bits.join(' · ')} across ${rows.length} ${
@@ -114,7 +132,7 @@ export default function Production() {
         }.`,
       });
     } else {
-      setMsg({ ok: false, text: 'Could not save — check your connection and try again.' });
+      setMsg({ ok: false, text: problem });
     }
   }
 
@@ -178,6 +196,10 @@ export default function Production() {
     const today = todayIso();
     const days = [...map.values()]
       .filter((d) => d.iso <= today)
+      // A day where nothing was made, sold or thrown away is not worth a row.
+      // Without this, confirming a variant as "none" would put a line of zeros
+      // in the history and make the page look busier than the shop was.
+      .filter((d) => d.produced !== 0 || d.sold !== 0 || d.rejected !== 0)
       .sort((a, b) => (a.iso < b.iso ? -1 : 1));
 
     let running = 0;
@@ -365,7 +387,7 @@ export default function Production() {
                           min={0}
                           aria-label={`${shape.name} ${v.colour} produced`}
                           value={qty[v.key] ?? ''}
-                          placeholder="0"
+                          placeholder="—"
                           onChange={(e) => setMade(v.key, e.target.value)}
                           className="w-11 rounded-[4px] border border-blush-300 px-1.5 py-[3px] text-right text-[10.5px] outline-none focus:border-crimson-600"
                         />
@@ -375,7 +397,7 @@ export default function Production() {
                           min={0}
                           aria-label={`${shape.name} ${v.colour} rejected`}
                           value={rej[v.key] ?? ''}
-                          placeholder="0"
+                          placeholder="—"
                           onChange={(e) => setRejected(v.key, e.target.value)}
                           className="w-11 rounded-[4px] border border-blush-300 px-1.5 py-[3px] text-right text-[10.5px] text-ink-500 outline-none focus:border-crimson-600"
                         />
@@ -384,6 +406,12 @@ export default function Production() {
                   </div>
                 </div>
               ))}
+
+              <p className="mt-3 text-[9.5px] leading-[1.7] text-ink-300">
+                Leave a box <b className="font-medium text-ink-500">empty</b> if you have
+                nothing to report for it. Type <b className="font-medium text-ink-500">0</b>{' '}
+                to confirm there are none of that colour — the shop stops selling it.
+              </p>
 
               <div className="mt-3">
                 <button
@@ -417,8 +445,9 @@ export default function Production() {
 
           {history.length === 0 ? (
             <p className="px-4 py-8 text-center text-[10.5px] leading-[1.7] text-ink-300">
-              Nothing logged yet. Type the pieces you finished on the right and save —
-              every day shows up here with its ending stock.
+              Nothing made yet. Type the pieces you finished on the right and save — every day
+              shows up here with its ending stock. Marking a colour as 0 does not appear here:
+              it only closes that colour in the shop.
             </p>
           ) : (
             <div className="overflow-x-auto">
