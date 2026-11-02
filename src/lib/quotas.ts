@@ -164,17 +164,17 @@ export function piecesOf(month: string, memberId: string, week: number): number 
  * so a cleared box arrives as a zero and is written as one. Nothing is
  * deleted, and nothing outside this month is touched.
  *
- * Returns false when the write did not land, so the screen can say so instead
- * of showing numbers that are not really saved.
+ * Returns `null` when it worked, or a sentence saying why it did not — so the
+ * screen can tell the truth instead of showing numbers that were never saved.
  */
-export async function saveMonth(month: string, next: QuotaEntry[]): Promise<boolean> {
+export async function saveMonth(month: string, next: QuotaEntry[]): Promise<string | null> {
   // Keep every other month exactly as it was.
   const others = entries.filter((e) => e.month !== month);
   const mine = next.map((e) => ({ ...e, month }));
 
   if (!supabase) {
     commitLocal([...others, ...mine]);
-    return true;
+    return null;
   }
 
   const rows = mine.map((e) => ({
@@ -190,10 +190,15 @@ export async function saveMonth(month: string, next: QuotaEntry[]): Promise<bool
 
   if (error) {
     console.error('[quotas] could not save the numbers:', error.message);
-    return false;
+
+    // The one failure worth naming: the table is not there yet.
+    if (/member_quotas/i.test(error.message) || error.code === 'PGRST205') {
+      return 'The quota table does not exist yet. Run supabase/quota-2026.sql in the SQL Editor once, then save again.';
+    }
+    return `Could not save: ${error.message}`;
   }
 
   entries = [...others, ...mine];
   publish();
-  return true;
+  return null;
 }

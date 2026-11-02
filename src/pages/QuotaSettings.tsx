@@ -95,14 +95,14 @@ export default function QuotaSettings() {
       }
     }
 
-    const ok = await saveMonth(month, next);
+    const problem = await saveMonth(month, next);
     setSaving(false);
-    setDirty(false);
     setFlash(
-      ok
-        ? { ok: true, text: `${monthLabel(month)} saved.` }
-        : { ok: false, text: 'Could not save — check your connection and try again.' },
+      problem
+        ? { ok: false, text: problem }
+        : { ok: true, text: `${monthLabel(month)} saved.` },
     );
+    if (!problem) setDirty(false);
   }
 
   const monthTotal = activeMembers.reduce((sum, m) => sum + (draft[key(m.id, 0)] ?? 0), 0);
@@ -172,7 +172,7 @@ export default function QuotaSettings() {
                 : 'bg-crimson-600 hover:bg-wine-800',
             ].join(' ')}
           >
-            {saving ? 'Saving…' : dirty ? 'Save the month' : 'Saved'}
+            {saving ? 'Saving…' : dirty ? 'Save the month' : 'No changes'}
           </button>
         </div>
       </div>
