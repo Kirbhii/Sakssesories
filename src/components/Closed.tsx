@@ -23,7 +23,7 @@ export default function Closed() {
           className="mx-auto h-12 w-auto opacity-90"
         />
         <p className="mt-6 text-[8px] uppercase tracking-[0.22em] text-ink-300">
-          Saksesories PH
+          Sakssesories PH
         </p>
         <h1 className="mt-2 text-[clamp(24px,3vw,32px)] text-ink-900">
           Closed today — {day}.

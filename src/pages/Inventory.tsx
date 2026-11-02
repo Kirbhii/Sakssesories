@@ -85,7 +85,7 @@ export default function Inventory() {
             <b className="font-medium text-ink-900">Inventory</b> / Materials
           </span>
           <span className="rounded-pill border border-blush-300 px-3 py-1 text-[9.5px] text-ink-500">
-            Saksesories PH · Main
+            Sakssesories PH · Main
           </span>
         </header>
 

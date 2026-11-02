@@ -38,7 +38,7 @@ export default function Login() {
             className="mx-auto mb-3.5 h-16 w-auto"
           />
           <p className="font-serif text-[26px] leading-none tracking-[-0.01em] text-ink-900">
-            Saksesories PH
+            Sakssesories PH
           </p>
           <p className="mt-1.5 text-[7.5px] uppercase tracking-[0.2em] text-ink-300">
             Sakses anytime, Style anytime

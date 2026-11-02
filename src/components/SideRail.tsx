@@ -106,9 +106,9 @@ export default function SideRail() {
           className="h-8 w-auto flex-none md:h-9"
         />
         <span className="flex flex-col">
-          <span className="block font-serif text-[17px] leading-tight text-white">Saksesories PH</span>
+          <span className="block font-serif text-[17px] leading-tight text-white">Sakssesories PH</span>
           <span className="mt-1 block text-[7px] uppercase tracking-[0.22em] text-white/40 max-md:hidden">
-            by Saksesories
+            by Sakssesories
           </span>
         </span>
       </Link>

@@ -29,7 +29,7 @@ const ArrowRight = ({ className = 'h-3 w-3' }: { className?: string }) => (
 const FAQS = [
   {
     q: 'What is ClearChain?',
-    a: 'A leather keychain with a microfiber pad stitched into it. It hangs with your keys and cleans your glasses, phone, or screen whenever you need it.',
+    a: 'A leather keychain with a microfiber pad crafted into it. It hangs with your keys and cleans your glasses, phone, or screen whenever you need it. The pad is part of the piece — it does not come out — and washing it is all the care it needs.',
   },
   {
     q: 'What shapes and colours are there?',
@@ -66,13 +66,13 @@ const GIFTS = [
 const FEATURES = [
   {
     icon: 'M8 2.6 13.4 5.5 8 8.4 2.6 5.5 8 2.6ZM2.6 8.9 8 11.8 13.4 8.9M2.6 11.6 8 14.5 13.4 11.6',
-    title: 'Removable microfiber pad',
-    body: 'Swap it, wash it, keep it working.',
+    title: 'Washable microfiber pad',
+    body: 'Crafted in, not removable — wash it and it keeps working.',
   },
   {
     icon: 'M2.6 13.4 9.6 6.4M9.1 5.9a1.9 1.9 0 1 0 2.7 2.7 1.9 1.9 0 0 0-2.7-2.7Z',
-    title: 'Hand-stitched leather',
-    body: 'Cut and stitched by hand in small batches.',
+    title: 'Crafted leather',
+    body: 'Cut and finished by hand in small batches.',
   },
   {
     icon: 'M8 14.2s4.2-4.1 4.2-6.9a4.2 4.2 0 1 0-8.4 0c0 2.8 4.2 6.9 4.2 6.9ZM8 5.5a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2Z',
@@ -456,7 +456,7 @@ export default function Home() {
           <div>
             <p className="eyebrow">
               <span className="h-[5px] w-[5px] rounded-full bg-current" />
-              Why Saksesories PH
+              Why Sakssesories PH
             </p>
             <h2 className="text-[clamp(28px,2.7vw,37px)] leading-[1.14]">
               Thoughtful details for your everyday.
@@ -465,11 +465,11 @@ export default function Home() {
           <div className="space-y-3.5">
             <p className="text-[14.5px] leading-[1.75] text-ink-500">
               We keep the details small on purpose. A keychain is the one thing you already carry
-              everywhere — so we made it useful: a soft microfiber pad stitched into real leather,
+              everywhere — so we made it useful: a soft microfiber pad crafted into real leather,
               ready to wipe your lenses clean whenever the world gets smudged.
             </p>
             <p className="text-[14.5px] leading-[1.75] text-ink-500">
-              Every piece is cut, stitched, and finished by hand in small batches. No two are
+              Every piece is cut, crafted, and finished by hand in small batches. No two are
               perfectly identical, and that is exactly the point.
             </p>
             <p className="pt-1 font-serif text-[17px] italic text-wine-700">
@@ -787,7 +787,7 @@ export default function Home() {
             Sakses anytime, Style everyday
           </h2>
           <p className="mt-3 text-[10px] uppercase tracking-[0.2em] text-white/60">
-            only here at Saksesories PH
+            only here at Sakssesories PH
           </p>
           <Link
             to="/pos"

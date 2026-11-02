@@ -28,7 +28,7 @@ export default function SiteFooter() {
               height={531}
               className="h-14 w-auto"
             />
-            <span className="mt-3 block font-serif text-[22px] text-blush-100">Saksesories PH</span>
+            <span className="mt-3 block font-serif text-[22px] text-blush-100">Sakssesories PH</span>
             <p className="mt-2.5 max-w-[30ch] text-[11px] leading-[1.7] text-blush-100/65">
               A little style, a clearer day — handmade leather keychains with a microfiber pad,
               made in the Philippines.
@@ -66,7 +66,7 @@ export default function SiteFooter() {
         </div>
 
         <div className="flex items-center justify-between gap-5 pt-[22px] text-[10px] tracking-[0.04em] text-blush-100/45 max-md:flex-col max-md:items-start max-md:gap-2">
-          <span>© 2026 Saksesories PH · All rights reserved.</span>
+          <span>© 2026 Sakssesories PH · All rights reserved.</span>
           <span>Made with care in the Philippines</span>
         </div>
       </div>

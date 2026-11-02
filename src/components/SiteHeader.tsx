@@ -67,7 +67,7 @@ export default function SiteHeader() {
           />
           <span className="flex min-w-0 flex-col">
             <span className="truncate font-serif text-[18px] leading-[1.1] tracking-[-0.01em] text-wine-800 md:text-[20px]">
-              Saksesories PH
+              Sakssesories PH
             </span>
             <span className="truncate text-[7.5px] uppercase tracking-[0.2em] text-ink-300">
               Sakses anytime, Style anytime
