@@ -219,6 +219,52 @@ export function allSold(): SoldEntry[] {
   return soldCache;
 }
 
+// ── What is left to sell ────────────────────────────────────────────────────
+// The same arithmetic the sheet prints for today: everything made, minus
+// everything thrown away, minus everything sold. The shop floor and the sheet
+// have to agree, so there is one sum and both read it.
+//
+// ── Why this returns null and not zero ──────────────────────────────────────
+// A variant nobody has ever logged has an ending inventory of zero — but that
+// zero means "production has not written this down yet", not "there are none
+// left". Read as zero, the whole shop would stop selling the moment this
+// shipped, and the first person to hit it would conclude the POS was broken.
+//
+// So an unlogged variant comes back as `null`, which every caller reads as
+// "no number, sell freely". The brake only ever comes from a number somebody
+// actually typed. Same rule as a blank quota.
+
+export function availableOf(variantKey: string): number | null {
+  let left = 0;
+  let logged = false;
+
+  for (const e of live) {
+    if (e.variantKey !== variantKey) continue;
+    logged = true;
+    left += e.qty - e.rejected;
+  }
+
+  // Nothing was ever logged for this variant, so there is nothing to count
+  // down from. Null, deliberately.
+  if (!logged) return null;
+
+  for (const s of sold) {
+    if (s.variantKey === variantKey) left -= s.qty;
+  }
+
+  // A negative count means the log and the ledger disagree — pieces were sold
+  // that were never recorded as made. Showing "sold out" is the honest reading;
+  // showing a negative number would just confuse the cashier.
+  return Math.max(0, left);
+}
+
+/** How many of each variant are left, for the whole grid at once. */
+export function availableMap(): Map<string, number | null> {
+  const out = new Map<string, number | null>();
+  for (const v of VARIANTS) out.set(v.key, availableOf(v.key));
+  return out;
+}
+
 // ── Writing ─────────────────────────────────────────────────────────────────
 
 /** Append a batch of finished pieces. Resolves false if the write failed. */

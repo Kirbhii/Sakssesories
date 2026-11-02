@@ -25,6 +25,7 @@ import {
 } from '@/lib/payaccounts';
 import { PLAN, barWidth, creditRecipient, hasQuota, memberOf, quotaLabel, quotaOf, roomOf } from '@/lib/quota';
 import { formatPhone, isValidPhone, phoneDigits } from '@/lib/profile';
+import { availableOf, loadProduction, refreshSold, useProduction } from '@/lib/production';
 import { allSales, recordSales, type Sale } from '@/lib/sales';
 
 type PaymentMethod = string;
@@ -190,12 +191,48 @@ export default function Pos() {
   // every member-only bit below is guarded by `isStaff`.
   const isStaff = !!member;
 
+  // A batch may have been logged on another device since this screen opened.
+  // Re-reading on mount means the first customer of the day does not see
+  // yesterday's numbers.
+  useEffect(() => {
+    void loadProduction();
+  }, []);
+
   const variant = VARIANTS.find((v) => v.key === `${shape}-${colour}`);
   const base = variant?.price ?? SHAPES[0].price;
   const engraved = cleanEngraving(engraving);
   const letters = engraved.length;
   const letterFee = engravingFee(letters);
   const unitPrice = base + letterFee;
+
+  // ── What is left, according to production ─────────────────────────────────
+  // `useProduction()` re-renders this screen whenever the log or the sold
+  // counts change, so the numbers below are read fresh rather than cached.
+  //
+  // `stock` is null for a variant production has never logged — that means
+  // "no number", not "none left", and every check below lets a null through.
+  // Reading null as zero would shut the whole shop on day one.
+  useProduction();
+  const stock = variant ? availableOf(variant.key) : null;
+  const soldOut = stock === 0;
+  /** The most this variant may sit in one order. Unknown stock = no limit. */
+  const capOf = (key: string): number => availableOf(key) ?? Infinity;
+
+  // How many of this exact variant are already promised in the order, across
+  // every engraving — two lines of the same colour still come off one shelf.
+  const inCartForVariant = cart
+    .filter((l) => l.shape === shape && l.colourId === colour)
+    .reduce((n, l) => n + l.qty, 0);
+
+  /** What is still addable. Null means production has no number for this one. */
+  const leftToAdd = stock === null ? null : Math.max(0, stock - inCartForVariant);
+
+  // A colour that runs out while it is on screen must not leave the stepper
+  // holding a number nobody can sell.
+  useEffect(() => {
+    if (leftToAdd !== null && qty > leftToAdd) setQty(Math.max(1, leftToAdd));
+  }, [leftToAdd, qty]);
+
   const addTotal = unitPrice * qty;
 
   const pieces = cart.reduce((sum, l) => sum + l.qty, 0);
@@ -335,7 +372,12 @@ export default function Pos() {
 
   function pickShape(next: ShapeId) {
     setShape(next);
-    setColour(HOME_COLOUR[next]);
+    // If the usual opening colour is sold out, open on the first one that is
+    // not — otherwise the screen greets the cashier with a dead swatch and a
+    // disabled button for no reason they can see.
+    const home = HOME_COLOUR[next];
+    const open = COLOURS.find((c) => availableOf(`${next}-${c.id}`) !== 0);
+    setColour(availableOf(`${next}-${home}`) === 0 && open ? open.id : home);
   }
 
   function addToCart() {
@@ -343,10 +385,26 @@ export default function Pos() {
     const name = cleanEngraving(engraving);
     const key = `${shape}-${colour}-${name}`;
 
+    // How much of this variant is already in the order, counting every
+    // engraving separately — the shelf does not care how the pieces are split
+    // between lines, only how many have been promised.
+    const room = Math.max(0, capOf(variant.key) - inCartForVariant);
+    const take = Math.min(qty, room);
+
+    if (take === 0) {
+      setFlash(
+        inCartForVariant > 0
+          ? `Every ${variant.colour.toLowerCase()} ${variant.shapeName.toLowerCase()} left is already in this order.`
+          : `No ${variant.colour.toLowerCase()} ${variant.shapeName.toLowerCase()} left.`,
+      );
+      window.setTimeout(() => setFlash(''), 4000);
+      return;
+    }
+
     setCart((prev) => {
       const found = prev.find((l) => l.key === key);
       if (found) {
-        return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + qty } : l));
+        return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + take } : l));
       }
       return [
         ...prev,
@@ -360,27 +418,45 @@ export default function Pos() {
           sku: variant.sku,
           base,
           unit: base + engravingFee(name.length),
-          qty,
+          qty: take,
           engraving: name,
         },
       ];
     });
 
     setFlash(
-      `Added to your order — ${qty} ${variant.shapeName.toLowerCase()}${
-        qty > 1 ? 's' : ''
-      } in ${variant.colour.toLowerCase()}.`,
+      take < qty
+        ? `Only ${take} ${variant.shapeName.toLowerCase()}${
+            take > 1 ? 's' : ''
+          } in ${variant.colour.toLowerCase()} left — that is all that went in.`
+        : `Added to your order — ${take} ${variant.shapeName.toLowerCase()}${
+            take > 1 ? 's' : ''
+          } in ${variant.colour.toLowerCase()}.`,
     );
     setQty(1);
     window.setTimeout(() => setFlash(''), 4000);
   }
 
   function bump(key: string, delta: number) {
-    setCart((prev) =>
-      prev
-        .map((l) => (l.key === key ? { ...l, qty: Math.max(0, l.qty + delta) } : l))
-        .filter((l) => l.qty > 0),
-    );
+    setCart((prev) => {
+      const line = prev.find((l) => l.key === key);
+      if (!line) return prev;
+
+      let next = line.qty + delta;
+
+      // Adding more is capped by what is left; taking away never is — a
+      // cashier must always be able to shrink an order to nothing.
+      if (delta > 0) {
+        const others = prev
+          .filter((l) => l.key !== key && l.shape === line.shape && l.colourId === line.colourId)
+          .reduce((n, l) => n + l.qty, 0);
+        next = Math.min(next, capOf(`${line.shape}-${line.colourId}`) - others);
+      }
+
+      return prev
+        .map((l) => (l.key === key ? { ...l, qty: Math.max(0, next) } : l))
+        .filter((l) => l.qty > 0);
+    });
   }
 
   function setLineEngraving(key: string, value: string) {
@@ -446,6 +522,10 @@ export default function Pos() {
 
     setDone(true);
 
+    // Those pieces just left the shelf. Re-read the sold counts so the next
+    // order sees the new number instead of the one from before this sale.
+    refreshSold();
+
     // Both get a receipt, for different reasons. A customer keeps the number
     // because it is the only handle they have on the order. A member of staff
     // keeps it because the shop writes the same number on a paper receipt by
@@ -484,6 +564,9 @@ export default function Pos() {
     setEngraving('');
     setRef('');
     setSaveError('');
+    // A note about what went into the *previous* order has no business sitting
+    // under an empty basket — it reads as if something is already in it.
+    setFlash('');
     setOrNo(nextOrNo());
   }
 
@@ -573,23 +656,38 @@ export default function Pos() {
                   aside={<span className="text-ink-900">{variant?.colour}</span>}
                 />
                 <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
-                  {COLOURS.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setColour(c.id)}
-                      aria-label={c.name}
-                      aria-pressed={colour === c.id}
-                      title={c.name}
-                      className={[
-                        'h-[26px] w-[26px] rounded-full border transition-all',
-                        colour === c.id
-                          ? 'border-ink-900 ring-2 ring-ink-900 ring-offset-2 ring-offset-white'
-                          : 'border-black/15 hover:scale-105',
-                      ].join(' ')}
-                      style={{ background: c.hex }}
-                    />
-                  ))}
+                  {COLOURS.map((c) => {
+                    // Sold out comes from production, never from a guess. A
+                    // colour production has not logged has no number, so it
+                    // stays open.
+                    const out = availableOf(`${shape}-${c.id}`) === 0;
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => setColour(c.id)}
+                        disabled={out}
+                        aria-label={c.name}
+                        aria-pressed={colour === c.id}
+                        title={out ? `${c.name} — sold out` : c.name}
+                        className={[
+                          'h-[26px] w-[26px] rounded-full border transition-all',
+                          out
+                            ? 'cursor-not-allowed border-black/10 opacity-25'
+                            : colour === c.id
+                              ? 'border-ink-900 ring-2 ring-ink-900 ring-offset-2 ring-offset-white'
+                              : 'border-black/15 hover:scale-105',
+                        ].join(' ')}
+                        style={{ background: c.hex }}
+                      />
+                    );
+                  })}
                 </div>
+                {COLOURS.every((c) => availableOf(`${shape}-${c.id}`) === 0) && (
+                  <p className="mt-2 text-[10px] text-ink-400">
+                    Every colour of the {SHAPES.find((s) => s.id === shape)?.name.toLowerCase()} is
+                    sold out.
+                  </p>
+                )}
               </div>
 
               {/* 03 — the name */}
@@ -642,7 +740,17 @@ export default function Pos() {
 
               {/* 04 — quantity */}
               <div className="border-t border-blush-300/60 px-5 py-4">
-                <Step n="04" title="Quantity" />
+                <Step
+                  n="04"
+                  title="Quantity"
+                  aside={
+                    leftToAdd === null ? undefined : (
+                      <span className={leftToAdd === 0 ? 'text-crimson-600' : 'text-ink-400'}>
+                        {leftToAdd === 0 ? 'none left' : `${leftToAdd} left`}
+                      </span>
+                    )
+                  }
+                />
                 <div className="mt-2.5 inline-flex items-center overflow-hidden rounded-pill border border-blush-300">
                   <button
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
@@ -654,9 +762,14 @@ export default function Pos() {
                   </button>
                   <span className="num min-w-[28px] text-center text-[12px]">{qty}</span>
                   <button
-                    onClick={() => setQty((q) => q + 1)}
+                    onClick={() =>
+                      setQty((q) =>
+                        leftToAdd === null ? q + 1 : Math.min(q + 1, Math.max(1, leftToAdd)),
+                      )
+                    }
+                    disabled={leftToAdd !== null && qty >= Math.max(1, leftToAdd)}
                     aria-label="Increase quantity"
-                    className="grid h-[30px] w-[32px] place-items-center text-[13px] text-ink-500 transition-colors hover:bg-blush-100"
+                    className="grid h-[30px] w-[32px] place-items-center text-[13px] text-ink-500 transition-colors hover:bg-blush-100 disabled:opacity-30"
                   >
                     +
                   </button>
@@ -667,9 +780,17 @@ export default function Pos() {
               <div className="border-t border-blush-300/60 px-5 py-4">
                 <button
                   onClick={addToCart}
-                  className="flex w-full items-center justify-center gap-2 rounded-pill bg-crimson-600 px-[18px] py-3 text-[11.5px] font-medium text-white transition-colors hover:bg-wine-800"
+                  disabled={soldOut || leftToAdd === 0}
+                  className={[
+                    'flex w-full items-center justify-center gap-2 rounded-pill px-[18px] py-3 text-[11.5px] font-medium transition-colors',
+                    soldOut || leftToAdd === 0
+                      ? 'cursor-not-allowed bg-blush-200 text-ink-400'
+                      : 'bg-crimson-600 text-white hover:bg-wine-800',
+                  ].join(' ')}
                 >
-                  Add {qty} to order · {peso(addTotal)}
+                  {soldOut || leftToAdd === 0
+                    ? 'Sold out'
+                    : `Add ${qty} to order · ${peso(addTotal)}`}
                 </button>
 
                 {flash && (
