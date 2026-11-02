@@ -113,7 +113,15 @@ let generation = 0;
  * staff member may read the log. Only the newest read is allowed to land.
  */
 export async function loadProduction(): Promise<void> {
-  if (!supabase) return;
+  if (!supabase) {
+    // Offline the ledger is already in memory, so the sold counts can be
+    // tallied straight away. Skipping this made a reload read every variant as
+    // "nothing sold yet" — the log would say eight pieces left when four had
+    // already gone out of the door.
+    sold = soldFromLedger();
+    publish();
+    return;
+  }
   const mine = ++generation;
 
   const { data, error } = await supabase

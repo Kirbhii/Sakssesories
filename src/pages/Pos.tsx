@@ -194,8 +194,26 @@ export default function Pos() {
   // A batch may have been logged on another device since this screen opened.
   // Re-reading on mount means the first customer of the day does not see
   // yesterday's numbers.
+  //
+  // Mount alone is not enough: the till stays open all day, so production can
+  // log four more while this screen is just sitting there. Without a second
+  // read, a colour that was restocked an hour ago still says "sold out" until
+  // somebody happens to reload — which is the kind of thing that makes staff
+  // stop trusting the number. There is no realtime subscription (that would
+  // mean enabling it on the table), so this re-reads whenever the tab comes
+  // back into view, which is what a cashier does between customers anyway.
   useEffect(() => {
     void loadProduction();
+
+    const reread = (): void => {
+      if (document.visibilityState === 'visible') void loadProduction();
+    };
+    document.addEventListener('visibilitychange', reread);
+    window.addEventListener('focus', reread);
+    return () => {
+      document.removeEventListener('visibilitychange', reread);
+      window.removeEventListener('focus', reread);
+    };
   }, []);
 
   const variant = VARIANTS.find((v) => v.key === `${shape}-${colour}`);
