@@ -22,6 +22,7 @@ import {
 import { loadAccounts } from '@/lib/payaccounts';
 import { localProfile } from '@/lib/profile';
 import { loadProduction } from '@/lib/production';
+import { loadQuotas } from '@/lib/quotas';
 import { creditedByMember, loadCredited, loadSales } from '@/lib/sales';
 import { supabase, type ProfileRow } from '@/lib/supabase';
 
@@ -132,6 +133,11 @@ async function loadRoster(): Promise<void> {
   // After the roster, not before: `setRoster` hands out fresh members with
   // the count back at zero.
   setCredited(await loadCredited());
+
+  // The numbers Marketing and the GM set by hand. A missing table (the quota
+  // migration not run yet) leaves every target unset, which reads as "no cap"
+  // rather than "stop selling", so the till keeps working either way.
+  await loadQuotas();
 }
 
 /** The dev stand-in: a member id remembered in localStorage. */

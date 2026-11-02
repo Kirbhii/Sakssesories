@@ -5,13 +5,15 @@ import { peso } from '@/lib/data';
 import {
   PLAN,
   activeMembers,
+  anyQuotaSet,
   barWidth,
   creditRecipient,
   departmentCredited,
+  hasQuota,
   memberOf,
   passedOn,
   pct,
-  planBalanced,
+  quotaLabel,
   quotaOf,
   roomOf,
   teamCredited,
@@ -234,7 +236,10 @@ export default function MySales() {
                 </p>
                 <p className="num mt-[7px] text-[26px] font-medium leading-none text-ink-900">
                   {member.credited}
-                  <span className="text-[13px] font-normal text-ink-300"> / {meQuota} pcs</span>
+                  <span className="text-[13px] font-normal text-ink-300">
+                    {' '}
+                    / {quotaLabel(member.id)} pcs
+                  </span>
                 </p>
               </div>
               <span
@@ -269,7 +274,11 @@ export default function MySales() {
                 <span className="mt-[3px] h-2.5 w-2.5 flex-none rounded-full border border-warn-600" />
                 <span>
                   {nextTo
-                    ? `Quota full. Your next sale is credited to ${memberOf(nextTo)?.name} — they have ${roomOf(nextTo)} left.`
+                    ? `Quota full. Your next sale is credited to ${memberOf(nextTo)?.name} — ${
+                        hasQuota(nextTo)
+                          ? `they have ${roomOf(nextTo)} left.`
+                          : 'they have no target set, so they can take it.'
+                      }`
                     : 'Quota full, and so is the team — no more pieces can be recorded this month.'}
                 </span>
               </div>
@@ -299,16 +308,12 @@ export default function MySales() {
             </div>
 
             <p className="mt-2 text-[10px] leading-[1.55] text-ink-500">
-              Set by the GM: {PLAN.team} pcs · {activeMembers.length} members in{' '}
-              {PLAN.departments.length} departments.{' '}
-              {teamLeft > 0 ? `${teamLeft} still to go.` : 'Target met.'}
+              {anyQuotaSet()
+                ? `Set by hand: ${PLAN.team} pcs · ${activeMembers.length} members. ${
+                    teamLeft > 0 ? `${teamLeft} still to go.` : 'Target met.'
+                  }`
+                : `No targets set for ${PLAN.label} yet — everybody can keep selling.`}
             </p>
-
-            {!planBalanced() && (
-              <p className="mt-2 text-[9.5px] leading-[1.5] text-bad-600">
-                The personal quotas do not add up to {PLAN.team}. Fix them in the GM settings.
-              </p>
-            )}
           </div>
         </div>
 
@@ -348,7 +353,7 @@ export default function MySales() {
                         </span>
                         <span className="num flex-none text-[9.5px] text-ink-500">
                           {m.credited}
-                          <span className="text-ink-300">/{quotaOf(m.id)}</span>
+                          <span className="text-ink-300">/{quotaLabel(m.id)}</span>
                         </span>
                       </div>
                     );

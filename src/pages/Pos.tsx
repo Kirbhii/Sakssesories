@@ -23,7 +23,7 @@ import {
   type Payee,
   type PayeeChoice,
 } from '@/lib/payaccounts';
-import { PLAN, barWidth, creditRecipient, memberOf, quotaOf, roomOf } from '@/lib/quota';
+import { PLAN, barWidth, creditRecipient, hasQuota, memberOf, quotaLabel, quotaOf, roomOf } from '@/lib/quota';
 import { formatPhone, isValidPhone, phoneDigits } from '@/lib/profile';
 import { allSales, recordSales, type Sale } from '@/lib/sales';
 
@@ -1213,7 +1213,7 @@ export default function Pos() {
                   {PLAN.label} quota · {member.name}
                 </span>
                 <span className="num text-[10px] text-ink-500">
-                  {member.credited} / {meQuota}
+                  {member.credited} / {quotaLabel(member.id)}
                 </span>
               </div>
               <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-blush-200">
@@ -1231,11 +1231,13 @@ export default function Pos() {
                   meRoom === 0 ? 'text-warn-600' : 'text-ink-500',
                 ].join(' ')}
               >
-                {meRoom > 0
-                  ? `${meRoom} left for you this month.`
-                  : recipient
-                    ? `Full. This sale is credited to ${creditName} instead.`
-                    : `Full, and the team is at ${PLAN.team}/${PLAN.team}. No more pieces can be recorded.`}
+                {!hasQuota(member.id)
+                  ? 'No target set for you this month — you can keep selling.'
+                  : meRoom > 0
+                    ? `${meRoom} left for you this month.`
+                    : recipient
+                      ? `Full. This sale is credited to ${creditName} instead.`
+                      : `Full, and the team is at ${PLAN.team}/${PLAN.team}. No more pieces can be recorded.`}
               </p>
               </div>
             )}

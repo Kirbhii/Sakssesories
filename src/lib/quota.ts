@@ -1,12 +1,33 @@
-// ─── Monthly quota ──────────────────────────────────────────────────────────
-// The GM sets a quota per department and the team total. Pieces (pcs), not
-// pesos. Per-member quotas are derived from the department quota — they are
-// never typed, because 250 ÷ 8 is 31.25 and you cannot sell a quarter of a
-// keychain. `splitEven` hands out whole pieces and gives the remainder to the
-// first few, so a department always adds up to its own target exactly.
+// ─── Quotas ─────────────────────────────────────────────────────────────────
+// Every person has their own number, typed by Marketing or the GM. Nothing is
+// divided and nothing is derived from a department total: two people in the
+// same department can carry very different targets, because that is how the
+// shop really runs.
 //
-// Nobody may go past their own quota. When a member is full, the sale still
-// happens — but the credit goes to a teammate who still has room.
+// Each person carries TWO numbers:
+//
+//   the month   what the month is judged on
+//   the week    what the team works to day by day — one target per week
+//
+// They are separate promises. A week can be missed while the month still
+// lands, so the app never pretends one is the other.
+//
+// ── A week here is a block of days counted from the 1st ─────────────────────
+// 1–7, 8–14, 15–21, 22–28, and 29 to the end. Deliberately NOT the
+// Saturday-to-Friday remittance week used on the Summary screen: a target is
+// set as "week 1 of November", and cutting that into partial weeks at the
+// edges of a month would make two months impossible to compare. The screen
+// prints the real dates on every column so there is nothing to guess.
+//
+// ── No target is not the same as a target of zero ──────────────────────────
+// A month starts blank. A person with no number set has NO CAP — they can keep
+// selling. The alternative would be to read "unset" as "zero" and quietly
+// stop the whole shop on the first day of the month, which is the worst
+// possible failure for a till.
+//
+// Nobody may go past their own number once it IS set. When a member is full,
+// the sale still happens — but the credit goes to a teammate who still has
+// room.
 //
 // That makes every sale TWO separate facts:
 //   rungUp    who stood at the POS and rang it up — never changes
@@ -23,7 +44,7 @@ export type DepartmentId = 'marketing' | 'production' | 'finance';
 export interface Department {
   id: DepartmentId;
   name: string;
-  /** The GM's number for the whole department. */
+  /** The sum of this department's members' month targets. Read-only. */
   quota: number;
 }
 
@@ -49,23 +70,90 @@ export interface Member {
 }
 
 export interface QuotaPlan {
+  /** 'YYYY-MM' — the month the screens are working to right now. */
   month: string;
+  /** 'November'. */
   label: string;
-  /** Team ceiling — the sum of every department quota. */
+  /** Team ceiling — the sum of every person's month target. */
   team: number;
   departments: Department[];
 }
 
-export const PLAN: QuotaPlan = {
-  month: '2026-10',
-  label: 'October',
-  team: 650,
-  departments: [
-    { id: 'marketing', name: 'Marketing', quota: 300 },
-    { id: 'production', name: 'Production', quota: 250 },
-    { id: 'finance', name: 'Finance + GM', quota: 100 },
-  ],
-};
+// ── The departments ─────────────────────────────────────────────────────────
+// Only the names live here now. The quota on each one is filled in by
+// `rebuild()` as the sum of its members, so it can never disagree with the
+// people it is made of. The array identity never changes, because the Users
+// screen builds its department labels once at load.
+const DEPARTMENT_LIST: Department[] = [
+  { id: 'marketing', name: 'Marketing', quota: 0 },
+  { id: 'production', name: 'Production', quota: 0 },
+  { id: 'finance', name: 'Finance + GM', quota: 0 },
+];
+
+/** 'YYYY-MM' for a date. Local, not UTC — the shop works in Manila time. */
+export function monthKeyOf(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/** '2026-11' → 'November'. */
+export function monthLabel(month: string): string {
+  const m = Number(month.slice(5, 7));
+  return MONTH_NAMES[m - 1] ?? month;
+}
+
+/** '2026-11' → 'Nov'. */
+export function monthShort(month: string): string {
+  return monthLabel(month).slice(0, 3);
+}
+
+/** '2026-11' → '2026-11-01', which is what the database stores. */
+export function monthStart(month: string): string {
+  return `${month}-01`;
+}
+
+/** '2026-11-01' → '2026-11'. Tolerates a plain 'YYYY-MM' too. */
+export function monthOf(value: string): string {
+  return value.slice(0, 7);
+}
+
+/** The month the screens are working to. */
+export const currentMonth = (): string => monthKeyOf(new Date());
+
+export interface QuotaWeek {
+  /** 1..5 — the number shown on the screen. */
+  n: number;
+  /** First day of the month it covers, 1-based. */
+  from: number;
+  /** Last day it covers, inclusive. */
+  to: number;
+  /** 'Nov 1–7'. */
+  label: string;
+}
+
+/**
+ * The weeks inside a month: 1–7, 8–14, 15–21, 22–28, then 29 to the end.
+ * A 28-day February has four; a 31-day month has five.
+ */
+export function weeksOf(month: string): QuotaWeek[] {
+  const year = Number(month.slice(0, 4));
+  const m = Number(month.slice(5, 7));
+  const days = new Date(year, m, 0).getDate();
+  const short = monthShort(month);
+
+  const out: QuotaWeek[] = [];
+  let n = 1;
+  for (let from = 1; from <= days; from += 7) {
+    const to = Math.min(from + 6, days);
+    out.push({ n, from, to, label: `${short} ${from}–${to}` });
+    n += 1;
+  }
+  return out;
+}
 
 // ── The roster ──────────────────────────────────────────────────────────────
 // These are the people who work here, and they are also the fallback: on a
@@ -119,24 +207,45 @@ export const memberOf = (id: string): Member | undefined => MEMBERS.find((m) => 
 export const departmentOf = (id: string): Department | undefined =>
   PLAN.departments.find((d) => d.id === memberOf(id)?.department);
 
-/**
- * Split `total` into `n` whole pieces. The remainder goes one piece each to the
- * first few, so the parts always add back up to `total`.
- *   250 ÷ 8 → [32, 32, 31, 31, 31, 31, 31, 31]
- */
-export function splitEven(total: number, n: number): number[] {
-  if (n <= 0) return [];
-  const base = Math.floor(total / n);
-  const remainder = total - base * n;
-  return Array.from({ length: n }, (_, i) => base + (i < remainder ? 1 : 0));
+// ── The sheet of numbers ────────────────────────────────────────────────────
+// Keyed by month first, so every month is its own sheet. A month that was
+// never filled in is simply absent — not a sheet full of zeros, because a zero
+// and "nobody has set this yet" are different things.
+export interface MemberQuota {
+  /** The target for the whole month. */
+  month: number;
+  /** Week 1..5 → target. Index 0 is week 1. */
+  weeks: number[];
 }
 
-/** Each active member's whole-piece share of their department. */
-let QUOTA_BY_MEMBER: Record<string, number> = {};
+export type QuotaSheet = Record<string, MemberQuota>;
+
+/** One row as it comes back from `public.member_quotas`. */
+export interface QuotaRow {
+  member_slug: string;
+  /** 'YYYY-MM-DD'. */
+  month: string;
+  /** 0 = the whole month, 1..5 = that week. */
+  week: number;
+  pieces: number;
+}
+
+let SHEETS: Record<string, QuotaSheet> = {};
+
+/** The numbers set for a month. Empty when nobody has filled it in yet. */
+export function sheetFor(month: string): QuotaSheet {
+  return SHEETS[month] ?? {};
+}
+
+export const PLAN: QuotaPlan = {
+  month: currentMonth(),
+  label: monthLabel(currentMonth()),
+  team: 0,
+  departments: DEPARTMENT_LIST,
+};
 
 /**
- * Rebuild everything derived from the roster. Runs once at load and again
- * whenever the database hands over a different list.
+ * Rebuild everything derived from the roster and the numbers.
  *
  * `credited` is not part of this: it starts at zero and the screens read the
  * real total off the sales ledger, so a member with no entry here is not
@@ -145,13 +254,22 @@ let QUOTA_BY_MEMBER: Record<string, number> = {};
 function rebuild(): void {
   activeMembers.splice(0, activeMembers.length, ...MEMBERS.filter((m) => m.active));
 
-  QUOTA_BY_MEMBER = {};
-  for (const dept of PLAN.departments) {
-    const members = activeMembers.filter((m) => m.department === dept.id);
-    splitEven(dept.quota, members.length).forEach((quota, i) => {
-      QUOTA_BY_MEMBER[members[i].id] = quota;
-    });
+  PLAN.month = currentMonth();
+  PLAN.label = monthLabel(PLAN.month);
+
+  const sheet = SHEETS[PLAN.month] ?? {};
+
+  let team = 0;
+  for (const dept of DEPARTMENT_LIST) dept.quota = 0;
+
+  for (const m of activeMembers) {
+    const target = sheet[m.id]?.month ?? 0;
+    team += target;
+    const dept = DEPARTMENT_LIST.find((d) => d.id === m.department);
+    if (dept) dept.quota += target;
   }
+
+  PLAN.team = team;
 }
 
 rebuild();
@@ -170,6 +288,34 @@ export function setRoster(list: Member[]): void {
 }
 
 /**
+ * Adopt the numbers the database just handed over.
+ *
+ * The rows are every month that has been filled in, not just this one, so the
+ * screen can flip between months without another round trip.
+ */
+export function setQuotaPlan(rows: QuotaRow[]): void {
+  const next: Record<string, QuotaSheet> = {};
+
+  for (const r of rows) {
+    const key = monthOf(r.month);
+    const sheet = (next[key] ??= {});
+    const entry = (sheet[r.member_slug] ??= { month: 0, weeks: [0, 0, 0, 0, 0] });
+
+    if (r.week === 0) entry.month = r.pieces;
+    else if (r.week >= 1 && r.week <= 5) entry.weeks[r.week - 1] = r.pieces;
+  }
+
+  SHEETS = next;
+  rebuild();
+}
+
+/** Forget every loaded number. Used before a fresh read. */
+export function clearQuotaPlan(): void {
+  SHEETS = {};
+  rebuild();
+}
+
+/**
  * Write this month's piece counts onto the roster.
  *
  * `credited` is how many pieces are counted against a person's quota this
@@ -183,15 +329,54 @@ export function setCredited(counts: Record<string, number>): void {
   for (const m of MEMBERS) m.credited = counts[m.id] ?? 0;
 }
 
-/** This member's share. Derived from the department, never stored. */
-export function quotaOf(id: string): number {
-  return QUOTA_BY_MEMBER[id] ?? 0;
+// ── Reading one person's numbers ────────────────────────────────────────────
+
+/** Has anybody set this person a target for the month we are working to? */
+export function hasQuota(id: string): boolean {
+  return quotaOf(id) > 0;
 }
 
-/** Pieces still allowed before this member hits their cap. Never negative. */
+/** This person's target for the whole month. 0 means nobody has set one. */
+export function quotaOf(id: string): number {
+  return SHEETS[PLAN.month]?.[id]?.month ?? 0;
+}
+
+/** This person's target for week 1..5. 0 means nobody has set one. */
+export function weekQuotaOf(id: string, week: number): number {
+  if (week < 1 || week > 5) return 0;
+  return SHEETS[PLAN.month]?.[id]?.weeks?.[week - 1] ?? 0;
+}
+
+/** Somebody, somewhere, has a number for this month. */
+export function anyQuotaSet(month: string = PLAN.month): boolean {
+  const sheet = SHEETS[month];
+  if (!sheet) return false;
+  return Object.values(sheet).some((q) => q.month > 0);
+}
+
+/**
+ * Pieces still allowed before this person hits their cap.
+ *
+ * `Infinity` when no target is set — that is not a missing value, it is the
+ * honest answer: no cap. Screens print it with `roomLabel`.
+ */
 export function roomOf(id: string): number {
+  const quota = quotaOf(id);
+  if (quota <= 0) return Infinity;
   const m = memberOf(id);
-  return m ? Math.max(0, quotaOf(id) - m.credited) : 0;
+  return Math.max(0, quota - (m?.credited ?? 0));
+}
+
+/** A number a screen can print: "12", or "—" when no target is set. */
+export function roomLabel(id: string): string {
+  const room = roomOf(id);
+  return Number.isFinite(room) ? String(room) : '—';
+}
+
+/** A target a screen can print: "40", or "—" when nobody has set one. */
+export function quotaLabel(id: string): string {
+  const quota = quotaOf(id);
+  return quota > 0 ? String(quota) : '—';
 }
 
 /**
@@ -211,6 +396,7 @@ export const departmentCredited = (id: DepartmentId): number =>
 /** Team total is derived, never stored — it is just the sum of credited. */
 export const teamCredited = activeMembers.reduce((sum, m) => sum + m.credited, 0);
 
+/** Pieces the team still has to sell to hit the month. 0 when no target. */
 export const teamLeft = Math.max(0, PLAN.team - teamCredited);
 
 /**
@@ -223,6 +409,12 @@ export function needOf(id: string): number {
   if (quota <= 0) return 0;
   return Math.max(0, (quota - (memberOf(id)?.credited ?? 0)) / quota);
 }
+
+/** Sorting needs a real number: an unset cap ranks as "plenty of room". */
+const roomRank = (id: string): number => {
+  const room = roomOf(id);
+  return Number.isFinite(room) ? room : 1e9;
+};
 
 /**
  * Who gets the credit for the next piece.
@@ -237,6 +429,9 @@ export function needOf(id: string): number {
  * lowest raw count. With uneven quotas those two disagree: someone on 11/31 is
  * further behind than someone on 30/50, even though they have sold fewer.
  *
+ * With no quotas set at all, everybody has room and the tie-break falls to the
+ * fewest pieces sold — the same "whoever needs it most" answer in spirit.
+ *
  * `null` means the whole team is full and the sale cannot be recorded at all.
  */
 export function creditRecipient(sellerId: string | null): string | null {
@@ -244,14 +439,23 @@ export function creditRecipient(sellerId: string | null): string | null {
 
   const open = activeMembers
     .filter((m) => m.id !== sellerId && roomOf(m.id) > 0)
-    .sort((a, b) => needOf(b.id) - needOf(a.id) || roomOf(b.id) - roomOf(a.id));
+    .sort(
+      (a, b) =>
+        needOf(b.id) - needOf(a.id) ||
+        roomRank(b.id) - roomRank(a.id) ||
+        a.credited - b.credited,
+    );
 
   return open[0]?.id ?? null;
 }
 
-/** GM check: do the department quotas actually add up to the team ceiling? */
-export function planBalanced(plan: QuotaPlan = PLAN): boolean {
-  return plan.departments.reduce((sum, d) => sum + d.quota, 0) === plan.team;
+/**
+ * Kept for the screens that ask. With hand-set numbers there is no department
+ * total to balance against — the team total IS the sum of the people — so this
+ * is always true. It stays so the callers do not need to change.
+ */
+export function planBalanced(): boolean {
+  return true;
 }
 
 export function pct(credited: number, quota: number): number {

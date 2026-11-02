@@ -1,4 +1,4 @@
-import { MEMBERS, PLAN, quotaOf, roomOf } from '@/lib/quota';
+import { MEMBERS, PLAN, quotaLabel, roomOf } from '@/lib/quota';
 import { ROLE_LABEL } from '@/lib/auth';
 
 const DEPT_NAME = Object.fromEntries(PLAN.departments.map((d) => [d.id, d.name]));
@@ -51,7 +51,9 @@ export default function Users() {
                     <td className="px-4 py-[9px] text-[10.5px] text-ink-500">
                       {DEPT_NAME[m.department] ?? m.department}
                     </td>
-                    <td className="num px-4 py-[9px] text-right text-[10.5px]">{quotaOf(m.id)}</td>
+                    <td className="num px-4 py-[9px] text-right text-[10.5px]">
+                      {quotaLabel(m.id)}
+                    </td>
                     <td className="num px-4 py-[9px] text-right text-[10.5px]">{m.credited}</td>
                     <td className="px-4 py-[9px] text-[10.5px]">
                       {roomOf(m.id) === 0 ? (

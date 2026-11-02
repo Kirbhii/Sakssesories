@@ -137,6 +137,35 @@ create table if not exists public.production (
 create index if not exists production_day_idx
   on public.production (produced_on desc, variant_key);
 
+-- ─── Quotas, set by hand ────────────────────────────────────────────────────
+-- Each person has a target for the whole month AND a target for each week
+-- inside it. Nothing is divided: Marketing or the GM types every number.
+--
+-- `week = 0` is the whole month; 1..5 are the weeks inside it. A week here is
+-- a block of days counted from the 1st (1–7, 8–14, 15–21, 22–28, 29–end) —
+-- deliberately not the Saturday-to-Friday remittance week on the Summary
+-- screen, because a target is set as "week 1 of November" and partial weeks at
+-- the edges would make two months impossible to compare.
+--
+-- `month` is part of the key, so December is a fresh sheet. Nothing carries
+-- over, and a month with no rows simply has no targets yet.
+create table if not exists public.member_quotas (
+  member_slug text not null references public.profiles (slug) on delete cascade,
+  month       date not null,
+  week        smallint not null default 0,
+  pieces      integer not null default 0,
+  set_by      text references public.profiles (slug) on delete set null,
+  set_at      timestamptz not null default now(),
+
+  primary key (member_slug, month, week),
+  constraint member_quotas_week_range check (week between 0 and 5),
+  constraint member_quotas_month_is_first check (extract(day from month) = 1),
+  constraint member_quotas_pieces_sane check (pieces >= 0 and pieces <= 100000)
+);
+
+create index if not exists member_quotas_month_idx
+  on public.member_quotas (month, member_slug);
+
 -- ════════════════════════════════════════════════════════════════════════════
 -- Who is asking
 -- ════════════════════════════════════════════════════════════════════════════
@@ -157,6 +186,20 @@ create or replace function public.is_money()
 returns boolean
 language sql stable security definer set search_path = public
 as $$ select exists (select 1 from profiles where auth_id = auth.uid() and role in ('gm', 'finance')) $$;
+
+-- Marketing owns the monthly number and the GM signs off on it, so both of
+-- them may write a quota. Everyone else may only read one.
+create or replace function public.is_quota_keeper()
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from profiles
+    where auth_id = auth.uid()
+      and active
+      and role in ('marketing', 'gm')
+  )
+$$;
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- Row level security
@@ -259,6 +302,22 @@ create policy sales_staff_insert on public.sales
 drop policy if exists sales_money_update on public.sales;
 create policy sales_money_update on public.sales
   for update to authenticated using (is_money()) with check (is_money());
+
+-- ── member_quotas ───────────────────────────────────────────────────────────
+-- Every signed-in member reads the whole sheet: a target is not a secret, and
+-- the quota strip already shows everyone's number. Only Marketing and the GM
+-- may change one.
+alter table public.member_quotas enable row level security;
+
+drop policy if exists quotas_read on public.member_quotas;
+create policy quotas_read on public.member_quotas
+  for select to authenticated using (true);
+
+drop policy if exists quotas_write on public.member_quotas;
+create policy quotas_write on public.member_quotas
+  for all to authenticated
+  using (public.is_quota_keeper())
+  with check (public.is_quota_keeper());
 
 
 -- ─── The price list ─────────────────────────────────────────────────────────
